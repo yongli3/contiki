@@ -202,10 +202,93 @@ clear_bss(void)
 static void
 start_hse_clock(void)
 {
+
+    RCC->CR |= (uint32_t)0x00000001;
+  
+    /* Reset SW, HPRE, PPRE1, PPRE2, ADCPRE and MCO bits */
+    RCC->CFGR &= (uint32_t)0xF8FF0000;
+    
+    /* Reset HSEON, CSSON and PLLON bits */
+    RCC->CR &= (uint32_t)0xFEF6FFFF;
+  
+    /* Reset HSEBYP bit */
+    RCC->CR &= (uint32_t)0xFFFBFFFF;
+  
+    /* Reset PLLSRC, PLLXTPRE, PLLMUL and USBPRE/OTGFSPRE bits */
+    RCC->CFGR &= (uint32_t)0xFF80FFFF;
+  
+    /* Disable all interrupts and clear pending bits  */
+    RCC->CIR = 0x009F0000;
+      
   /* Start external oscillator */
   RCC->CR |= RCC_CR_HSEON;
   /* Wait for oscillator to stabilize */
   while(!(RCC->CR & RCC_CR_HSERDY));
+}
+
+static void SetSysClockTo72(void)
+{
+    volatile unsigned int StartUpCounter = 0, HSEStatus = 0;
+      
+    /* SYSCLK, HCLK, PCLK2 and PCLK1 configuration ---------------------------*/    
+    if ((RCC->CR & RCC_CR_HSERDY) != RESET)
+      {
+        HSEStatus = (uint32_t)0x01;
+      }
+      else
+      {
+        HSEStatus = (uint32_t)0x00;
+      }  
+    
+      if (HSEStatus == (uint32_t)0x01)
+      {
+        /* Enable Prefetch Buffer */
+        FLASH->ACR |= FLASH_ACR_PRFTBE;
+    
+        /* Flash 2 wait state */
+        FLASH->ACR &= (uint32_t)((uint32_t)~FLASH_ACR_LATENCY);
+        FLASH->ACR |= (uint32_t)FLASH_ACR_LATENCY_2;    
+    
+        /* HCLK = SYSCLK */
+        RCC->CFGR |= (uint32_t)RCC_CFGR_HPRE_DIV1;
+          
+        /* PCLK2 = HCLK */
+        RCC->CFGR |= (uint32_t)RCC_CFGR_PPRE2_DIV1;
+        
+        /* PCLK1 = HCLK */
+        RCC->CFGR |= (uint32_t)RCC_CFGR_PPRE1_DIV2;
+    
+        /*  PLL configuration: PLLCLK = HSE * 9 = 72 MHz */
+        RCC->CFGR &= (uint32_t)((uint32_t)~(RCC_CFGR_PLLSRC | RCC_CFGR_PLLXTPRE |
+                                            RCC_CFGR_PLLMULL));
+        RCC->CFGR |= (uint32_t)(RCC_CFGR_PLLSRC | RCC_CFGR_PLLMULL9);
+    
+        /* Enable PLL */
+        RCC->CR |= RCC_CR_PLLON;
+    
+        /* Wait till PLL is ready */
+        while((RCC->CR & RCC_CR_PLLRDY) == 0)
+        {
+        }
+        
+        /* Select PLL as system clock source */
+        RCC->CFGR &= (uint32_t)((uint32_t)~(RCC_CFGR_SW));
+        RCC->CFGR |= (uint32_t)RCC_CFGR_SW_PLL;    
+    
+        /* Wait till PLL is used as system clock source */
+        while ((RCC->CFGR & (uint32_t)RCC_CFGR_SWS) != (uint32_t)0x08)
+        {
+        }
+      }
+      else
+      { /* If HSE fails to start-up, the application will have wrong clock 
+             configuration. User can add here some code to deal with this error */
+      }
+
+    // FIXME
+    SCB->VTOR = 0x08000000 | 0;
+
+    //SCB->SHCSR |= SCB_SHCSR_SYSTICKACT;
 }
 
 static void
@@ -240,7 +323,8 @@ sys_reset(void)
   clear_bss();
   enable_fault_exceptions();
   start_hse_clock();
-  use_pll();
+  SetSysClockTo72();
+  //use_pll();
   main();
   while(1);
   

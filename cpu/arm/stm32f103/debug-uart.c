@@ -33,29 +33,35 @@ _XDBG_DMA_CHANNEL_IFCR_CGIF(DBG_DMA_CHANNEL_NO)
 
 
 #ifndef DBG_XMIT_BUFFER_LEN
-#define DBG_XMIT_BUFFER_LEN 1024
+#define DBG_XMIT_BUFFER_LEN 128
 #endif
 
 
 static unsigned char xmit_buffer[DBG_XMIT_BUFFER_LEN];
 #define XMIT_BUFFER_END &xmit_buffer[DBG_XMIT_BUFFER_LEN]
 void
-dbg_setup_uart_default()
+dbg_setup_uart_default(unsigned int baud_rate)
 {
   RCC->APB2ENR |=  (RCC_APB2ENR_AFIOEN
 		    | RCC_APB2ENR_IOPAEN| RCC_APB2ENR_IOPBEN
 		    | RCC_APB2ENR_USART1EN );
   RCC->AHBENR |= RCC_AHBENR_DMA1EN;
+
+#if 0
   AFIO_REMAP( AFIO_MAPR_USART1_REMAP, AFIO_MAPR_USART1_REMAP);
   GPIO_CONF_OUTPUT_PORT(B,6,ALT_PUSH_PULL,50);
   GPIO_CONF_INPUT_PORT(B,7,FLOATING);
-  
+#else
+    GPIO_CONF_OUTPUT_PORT(A,9,ALT_PUSH_PULL,50);
+    GPIO_CONF_INPUT_PORT(A,10,FLOATING);
+#endif
+
   USART1->CR1 = USART_CR1_UE;
   
   USART1->CR2 = 0;
   USART1->CR3 = USART_CR3_DMAT;
   USART1->CR1 |= USART_CR1_TE;
-  USART1->BRR= 0x1a1;
+  USART1->BRR= 0x271; //0x1a1;
 }
 
 /* Valid data in head to tail-1 */
@@ -70,9 +76,6 @@ static unsigned char * volatile xmit_buffer_tail = xmit_buffer;
 
 volatile unsigned char dma_running = 0;
 static unsigned char * volatile dma_end;
-void
-DMA1_Channel4_handler() __attribute__((interrupt));
-
 
 static void
 update_dma(void)
@@ -101,7 +104,8 @@ update_dma(void)
   DBG_DMA_CHANNEL->CCR |=DMA_CCR4_EN;
 }
 
-
+void
+DMA1_Channel4_handler() __attribute__((interrupt));
 
 void
 DMA1_Channel4_handler()

@@ -9,7 +9,12 @@
 #define NETSTACK_CONF_WITH_IPV4 1
 #define WITH_ASCII 1
 
-#define CLOCK_CONF_SECOND 100
+#define CLOCK_CONF_SECOND 1000
+
+typedef   signed char    int8_t;
+typedef unsigned char   uint8_t;
+typedef   signed short  int16_t;
+typedef unsigned short uint16_t;
 
 /* These names are deprecated, use C99 names. */
 typedef uint8_t u8_t;
