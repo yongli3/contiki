@@ -31,3 +31,4 @@
 #define _SPI1
 #define _SPI2
 #define _EXTI
+#define _FLASH

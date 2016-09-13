@@ -34,8 +34,8 @@ void
 clock_init()
 {
   NVIC_SET_SYSTICK_PRI(8);
-  SysTick->LOAD = MCK/8/CLOCK_SECOND;
-  SysTick->CTRL = SysTick_CTRL_ENABLE | SysTick_CTRL_TICKINT;
+  SysTick->LOAD = MCK/CLOCK_SECOND;
+  SysTick->CTRL = SysTick_CTRL_ENABLE | SysTick_CTRL_TICKINT | SysTick_CTRL_CLKSOURCE;
 }
 
 clock_time_t
