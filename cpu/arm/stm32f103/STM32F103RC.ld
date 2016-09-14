@@ -30,6 +30,12 @@ SECTIONS
    	*(.rodata .rodata.*)
 	*(.gnu.linkonce.r.*)
   } >CODE
+  
+.ARM.exidx : {
+    __exidx_start = .;
+    *(.ARM.exidx* .gnu.linkonce.armexidx.*)
+    __exidx_end = .;
+} >CODE  
 
   _etext = . ;
   PROVIDE (etext = .);

@@ -16,22 +16,22 @@ unsigned int idle_count = 0;
 int
 main()
 {
- // dbg_setup_uart(115200);
- // printf("Initialising ...\r\n");
+ dbg_setup_uart(115200);
+ printf("**Initialising ...\r\n");
 
-//  printf("Initialising ...\r\n");
+ printf("Initialising ...\r\n");
   
   clock_init();
   
   process_init();
-//  printf("Initialising ...\r\n");
+printf("Initialising ...\r\n");
 
   process_start(&etimer_process, NULL);
-//  printf("Initialising ...\r\n");
+  //printf("Initialising ...\r\n");
   autostart_start(autostart_processes);
-//  printf("Processes running\r\n");
+  //printf("Processes running\r\n");
   while(1) {
-    //printf("Initialising ...\r\n");
+    //printf(" ... %d\r\n", idle_count);
     do {
     } while(process_run() > 0);
     idle_count++;

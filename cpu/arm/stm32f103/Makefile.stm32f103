@@ -70,7 +70,7 @@ SAMIAM_TTY=/dev/ttyACM0
 # Use OpenOCD by default
 PROG=openocd
 
-ARCH_FLAGS= -march=armv7-m -mthumb
+ARCH_FLAGS= -march=armv7-m -mcpu=cortex-m3 -mthumb -mfloat-abi=soft
 
 CFLAGSNO = -I. -I$(CONTIKI)/core -I$(CONTIKI_CPU) -I$(CONTIKI_CPU)/loader \
 	   -I$(CONTIKI_CPU)/dbg-io \
@@ -80,7 +80,7 @@ CFLAGSNO = -I. -I$(CONTIKI)/core -I$(CONTIKI_CPU) -I$(CONTIKI_CPU)/loader \
            -Wall $(ARCH_FLAGS) -g -D SUBTARGET=$(SUBTARGET)
 
 CFLAGS  += $(CFLAGSNO) -O -DRUN_AS_SYSTEM -DROM_RUN
-LDFLAGS += -L $(CONTIKI_CPU) -T $(LINKERSCRIPT) -nostartfiles
+LDFLAGS += -L $(CONTIKI_CPU) -T $(LINKERSCRIPT) -nostartfiles -Wl,-Map -Xlinker contiki-$(TARGET).map
 
 CDEPFLAGS = $(CFLAGS) -D __MAKING_DEPS__
 

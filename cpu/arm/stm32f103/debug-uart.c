@@ -17,6 +17,9 @@
 #define DBG_DMA_CHANNEL_NO 4
 #endif
 
+// USART1 input RX ISR callback 
+int (*uart1_input_handler)(unsigned char c) = 0;
+
 
 #define _DBG_DMA_NAME(x) DMA##x
 #define DBG_DMA_NAME(x) _DBG_DMA_NAME(x)
@@ -36,12 +39,29 @@ _XDBG_DMA_CHANNEL_IFCR_CGIF(DBG_DMA_CHANNEL_NO)
 #define DBG_XMIT_BUFFER_LEN 128
 #endif
 
-
 static unsigned char xmit_buffer[DBG_XMIT_BUFFER_LEN];
 #define XMIT_BUFFER_END &xmit_buffer[DBG_XMIT_BUFFER_LEN]
+
+/* Valid data in head to tail-1 */
+/* Read position */
+static unsigned char * volatile xmit_buffer_head = xmit_buffer;
+
+/* Write position */
+static unsigned char * volatile xmit_buffer_tail = xmit_buffer;
+
+/* xmit_buffer_head == xmit_buffer_tail means empty so we can only store
+   DBG_XMIT_BUFFER_LEN-1 characters */
+
+volatile unsigned char dma_running = 0;
+static unsigned char * volatile dma_end;
+
 void
 dbg_setup_uart_default(unsigned int baud_rate)
 {
+
+  xmit_buffer_head = xmit_buffer;
+  xmit_buffer_tail = xmit_buffer;
+
   RCC->APB2ENR |=  (RCC_APB2ENR_AFIOEN
 		    | RCC_APB2ENR_IOPAEN| RCC_APB2ENR_IOPBEN
 		    | RCC_APB2ENR_USART1EN );
@@ -60,22 +80,11 @@ dbg_setup_uart_default(unsigned int baud_rate)
   
   USART1->CR2 = 0;
   USART1->CR3 = USART_CR3_DMAT;
-  USART1->CR1 |= USART_CR1_TE;
+  USART1->CR1 |= (USART_CR1_TE | USART_CR1_RE | USART_CR1_RXNEIE);
   USART1->BRR= 0x271; //0x1a1;
+
+  NVIC_ENABLE_INT(USART1_IRQChannel);
 }
-
-/* Valid data in head to tail-1 */
-/* Read position */
-static unsigned char * volatile xmit_buffer_head = xmit_buffer;
-
-/* Write position */
-static unsigned char * volatile xmit_buffer_tail = xmit_buffer;
-
-/* xmit_buffer_head == xmit_buffer_tail means empty so we can only store
-   DBG_XMIT_BUFFER_LEN-1 characters */
-
-volatile unsigned char dma_running = 0;
-static unsigned char * volatile dma_end;
 
 static void
 update_dma(void)
@@ -186,3 +195,43 @@ dbg_drain()
 {
   while(xmit_buffer_tail != xmit_buffer_head);
 }
+
+void
+USART1_handler() __attribute__((interrupt));
+
+// redefine IRQ handler functions
+void USART1_handler(void)
+{
+    static unsigned c ;
+    
+    unsigned int cr1, dr, sr;
+    
+    cr1 = USART1->CR1;
+    sr = USART1->SR;                      
+    if ((cr1 & USART_CR1_RXNEIE) && (sr & USART_SR_RXNE)) {
+        dr = USART1->DR;
+        c = dr & 0xff;
+        // echo 
+        dbg_putchar(c);   
+    }
+    
+#if 0
+    uint8_t c = 0;
+    if (USART_GetITStatus(USART1, USART_IT_RXNE) != RESET)
+    {
+        c = USART_ReceiveData(USART1);
+
+        // FIXME
+        USART_SendData(USART1, c);
+        while(USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+        
+        if (NULL != uart1_input_handler) {
+            uart1_input_handler(c);
+        }
+        //counter++;
+        /// printf("%d\r\n",counter);
+        //process_post(&receive_process, event_data_ready, (void*)&counter);        
+    }
+#endif    
+}
+
