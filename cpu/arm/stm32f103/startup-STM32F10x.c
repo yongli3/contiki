@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include <stm32f10x_map.h>
+#include <stm32f10x.h>
 
 
 extern int main(void);
@@ -252,10 +252,10 @@ static void SetSysClockTo72(void)
         /* HCLK = SYSCLK */
         RCC->CFGR |= (uint32_t)RCC_CFGR_HPRE_DIV1;
           
-        /* PCLK2 = HCLK */
+        /* APB2 = PCLK2 = HCLK */
         RCC->CFGR |= (uint32_t)RCC_CFGR_PPRE2_DIV1;
         
-        /* PCLK1 = HCLK */
+        /* APB1 = PCLK1 = HCLK/2; TIMXCLK = 2 X PCLK1 = HCLK*/
         RCC->CFGR |= (uint32_t)RCC_CFGR_PPRE1_DIV2;
     
         /*  PLL configuration: PLLCLK = HSE * 9 = 72 MHz */
@@ -271,7 +271,7 @@ static void SetSysClockTo72(void)
         {
         }
         
-        /* Select PLL as system clock source */
+        /* Select PLL as system clock source PLL = SYSCLK = HCLK = APB2*/
         RCC->CFGR &= (uint32_t)((uint32_t)~(RCC_CFGR_SW));
         RCC->CFGR |= (uint32_t)RCC_CFGR_SW_PLL;    
     

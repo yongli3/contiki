@@ -5,7 +5,7 @@ STM32TEST =
 CONTIKI_TARGET_DIRS = .
 # Master clock frequency
 MCK=72000000
-CFLAGS+=-DAUTOSTART_ENABLE
+CFLAGS+=-DAUTOSTART_ENABLE -DSTM32F10X_HD -I$(CONTIKI)/cpu/arm/common/CMSIS
 
 ifndef CONTIKI_TARGET_MAIN
 CONTIKI_TARGET_MAIN = contiki-main.c
@@ -13,6 +13,12 @@ endif
 
 CONTIKI_TARGET_SOURCEFILES += $(SENSORS) $(STEPPER_ROBOT) \
  $(CODEPROP_SOURCES) $(CONTIKI_TARGET_MAIN)
+
+ifeq ($(CONTIKI_WITH_IPV6),1)
+MODULES +=  core/net core/net/mac core/net/mac/sicslowmac /dev/cc2520
+CONTIKI_TARGET_SOURCEFILES += linkaddr.c link-stats.c queuebuf.c nullmac.c packetbuf.c \
+                              frame802154.c framer-802154.c nullsec.c nbr-table.c
+endif
 
 # include $(CONTIKI)/platform/$(TARGET)/apps/Makefile.apps
 

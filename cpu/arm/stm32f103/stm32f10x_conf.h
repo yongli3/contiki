@@ -15,6 +15,12 @@
 #define _TIM2
 #define _TIM3
 #define _TIM4
+#define _TIM5
+#define _TIM6
+#define _TIM7
+#define _TIM8
+
+
 #define _I2C1
 #define _I2C2
 #define _DMA1_Channel1

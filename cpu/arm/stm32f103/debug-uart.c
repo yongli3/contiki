@@ -1,6 +1,6 @@
 #include <debug-uart.h>
 #include <string.h>
-#include <stm32f10x_map.h>
+#include <stm32f10x.h>
 #include <stm32f10x_dma.h>
 #include <gpio.h>
 #include <nvic.h>
@@ -109,7 +109,8 @@ update_dma(void)
     dma_end = xmit_buffer;
   }
   NVIC_ENABLE_INT(DMA1_Channel4_IRQChannel);
-  NVIC_SET_PRIORITY(DMA1_Channel4_IRQChannel, 2);
+  NVIC_SetPriority(DMA1_Channel4_IRQChannel, 2);
+  //NVIC_SET_PRIORITY(DMA1_Channel4_IRQChannel, 2);
   DBG_DMA_CHANNEL->CCR |=DMA_CCR4_EN;
 }
 
@@ -210,9 +211,12 @@ void USART1_handler(void)
     sr = USART1->SR;                      
     if ((cr1 & USART_CR1_RXNEIE) && (sr & USART_SR_RXNE)) {
         dr = USART1->DR;
-        c = dr & 0xff;
+        c = dr & 0xff;        
         // echo 
         dbg_putchar(c);   
+        if (NULL != uart1_input_handler) {
+          uart1_input_handler(c);        
+        }
     }
     
 #if 0
