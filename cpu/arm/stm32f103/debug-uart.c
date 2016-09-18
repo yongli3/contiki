@@ -5,6 +5,8 @@
 #include <gpio.h>
 #include <nvic.h>
 
+NOT USED!
+
 #ifndef DBG_UART
 #define DBG_UART USART1
 #endif

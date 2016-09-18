@@ -41,7 +41,7 @@
 #define CC2520_H_
 
 #include "contiki.h"
-#include "dev/spi.h"
+//#include "dev/spi.h"
 #include "dev/radio.h"
 #include "dev/cc2520/cc2520_const.h"
 
@@ -94,42 +94,23 @@ void cc2520_set_cca_threshold(int value);
 #define CC2520_STROBE(s)                                \
   do {                                                  \
     CC2520_SPI_ENABLE();                                \
-    SPI_WRITE(s);                                       \
+    SPI1_ReadWriteByte(s);                              \
     CC2520_SPI_DISABLE();                               \
   } while (0)
 
 /* Write to a register in the CC2520                         */
 /* Note: the SPI_WRITE(0) seems to be needed for getting the */
 /* write reg working on the Z1 / MSP430X platform            */
-#define CC2520_WRITE_REG(adr,data)                                      \
-  do {                                                                  \
-    CC2520_SPI_ENABLE();                                                \
-    SPI_WRITE_FAST(CC2520_INS_MEMWR | ((adr>>8)&0xFF));                 \
-    SPI_WRITE_FAST(adr & 0xff);                                         \
-    SPI_WRITE_FAST((uint8_t) data);                                     \
-    SPI_WAITFORTx_ENDED();                                              \
-    CC2520_SPI_DISABLE();                                               \
-  } while(0)
-
+#define CC2520_WRITE_REG(adr,data) do {cc2520_write_reg(adr, data);} while (0)
 
 /* Read a register in the CC2520 */
-#define CC2520_READ_REG(adr,data)                                       \
-  do {                                                                  \
-    CC2520_SPI_ENABLE();                                                \
-    SPI_WRITE((CC2520_INS_MEMRD | ((adr>>8)&0xFF)));                    \
-    SPI_WRITE((adr & 0xFF));                                            \
-    (void)SPI_RXBUF;                                                    \
-    SPI_READ(data);                                                     \
-    CC2520_SPI_DISABLE();                                               \
-  } while(0)
+#define CC2520_READ_REG(adr,data)  do {data = cc2520_read_reg(adr); } while (0)          
 
 #define CC2520_READ_FIFO_BYTE(data)                                     \
   do {                                                                  \
     CC2520_SPI_ENABLE();                                                \
-    SPI_WRITE(CC2520_INS_RXBUF);                                        \
-    (void)SPI_RXBUF;                                                    \
-    SPI_READ(data);                                                     \
-    clock_delay(1);                                                     \
+    SPI1_ReadWriteByte(CC2520_INS_RXBUF);                                        \
+    data = SPI1_ReadWriteByte(0xFF);                                                     \
     CC2520_SPI_DISABLE();                                               \
   } while(0)
 
@@ -137,12 +118,10 @@ void cc2520_set_cca_threshold(int value);
   do {                                                                  \
     uint8_t i;                                                          \
     CC2520_SPI_ENABLE();                                                \
-    SPI_WRITE(CC2520_INS_RXBUF);                                        \
-    (void)SPI_RXBUF;                                                    \
+    SPI1_ReadWriteByte(CC2520_INS_RXBUF);                                        \
     for(i = 0; i < (count); i++) {                                      \
-      SPI_READ(((uint8_t *)(buffer))[i]);                               \
+     ((uint8_t *)(buffer))[i] = SPI1_ReadWriteByte(0xFF);                               \
     }                                                                   \
-    clock_delay(1);                                                     \
     CC2520_SPI_DISABLE();                                               \
   } while(0)
 
@@ -150,12 +129,10 @@ void cc2520_set_cca_threshold(int value);
   do {                                                                  \
     uint8_t i;                                                          \
     CC2520_SPI_ENABLE();                                                \
-    SPI_WRITE_FAST(CC2520_INS_TXBUF);                                   \
+    SPI1_ReadWriteByte(CC2520_INS_TXBUF);                                   \
     for(i = 0; i < (count); i++) {                                      \
-      SPI_WRITE_FAST(((uint8_t *)(buffer))[i]);                         \
-      SPI_WAITFORTxREADY();                                             \
+      SPI1_ReadWriteByte(((uint8_t *)(buffer))[i]);                         \
     }                                                                   \
-    SPI_WAITFORTx_ENDED();                                              \
     CC2520_SPI_DISABLE();                                               \
   } while(0)
 
@@ -164,12 +141,11 @@ void cc2520_set_cca_threshold(int value);
   do {                                                                  \
     uint8_t i;                                                          \
     CC2520_SPI_ENABLE();                                                \
-    SPI_WRITE_FAST(CC2520_INS_MEMWR | (((adr)>>8) & 0xFF));             \
-    SPI_WRITE_FAST(((adr) & 0xFF));                                     \
+    SPI1_ReadWriteByte(CC2520_INS_MEMWR | (((adr)>>8) & 0xFF));             \
+    SPI1_ReadWriteByte(((adr) & 0xFF));                                     \
     for(i = 0; i < (count); i++) {                                      \
-      SPI_WRITE_FAST(((uint8_t*)(buffer))[i]);                          \
+      SPI1_ReadWriteByte(((uint8_t*)(buffer))[i]);                          \
     }                                                                   \
-    SPI_WAITFORTx_ENDED();                                              \
     CC2520_SPI_DISABLE();                                               \
   } while(0)
 
@@ -178,11 +154,10 @@ void cc2520_set_cca_threshold(int value);
   do {                                                                  \
     uint8_t i;                                                          \
     CC2520_SPI_ENABLE();                                                \
-    SPI_WRITE(CC2520_INS_MEMRD | (((adr)>>8) & 0xFF));                  \
-    SPI_WRITE(((adr) & 0xFF));                                          \
-    SPI_RXBUF;                                                          \
+    SPI1_ReadWriteByte(CC2520_INS_MEMRD | (((adr)>>8) & 0xFF));                  \
+    SPI1_ReadWriteByte(((adr) & 0xFF));                                          \
     for(i = 0; i < (count); i++) {                                      \
-      SPI_READ(((uint8_t*)(buffer))[i]);                                \
+        ((uint8_t*)(buffer))[i] = SPI1_ReadWriteByte(0xFF);                                \
     }                                                                   \
     CC2520_SPI_DISABLE();                                               \
   } while(0)
@@ -191,9 +166,19 @@ void cc2520_set_cca_threshold(int value);
 #define CC2520_GET_STATUS(s)                                            \
   do {                                                                  \
     CC2520_SPI_ENABLE();                                                \
-    SPI_WRITE(CC2520_INS_SNOP);                                         \
-    s = SPI_RXBUF;                                                      \
+    SPI1_ReadWriteByte(CC2520_INS_SNOP);                                         \
+    s = SPI1_ReadWriteByte(0xff);                                                      \
     CC2520_SPI_DISABLE();                                               \
   } while (0)
+
+#define CC2520_GET_RANDOM(s)                                            \
+    do {                                                                  \
+      CC2520_SPI_ENABLE();                                                \
+      SPI1_ReadWriteByte(CC2520_INS_RANDOM);                                         \
+      SPI1_ReadWriteByte(0xff);                                         \
+      s = SPI1_ReadWriteByte(0xff);                                                      \
+      CC2520_SPI_DISABLE();                                               \
+    } while (0)
+
 
 #endif /* CC2520_H_ */
