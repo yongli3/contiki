@@ -26,7 +26,7 @@ void rtimer_arch_init(void)
     // TIM2CLK = PCK1 X 2
     // PSC(Prescaler) = (TIM2CLK / counter_clock) - 1
 	PrescalerValue = (uint16_t) ((SystemCoreClock) / RTIMER_ARCH_SECOND) - 1;
-
+    printf("%s sysclk=%d prescal=%d\n", __func__, SystemCoreClock, PrescalerValue);
 	/* Time base configuration */
 	TIM_TimeBaseStructure.TIM_Period = 0xFFFF;
 	TIM_TimeBaseStructure.TIM_Prescaler = 0;
@@ -40,7 +40,7 @@ void rtimer_arch_init(void)
 	// Output Compare Timing Mode configuration: Channel1
 	TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_Timing;
 	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
-	TIM_OCInitStructure.TIM_Pulse = 0xFFFF; // ->CCR1
+	TIM_OCInitStructure.TIM_Pulse = RTIMER_ARCH_SECOND; // ->CCR1
 	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
 	TIM_OC1Init(TIM2, &TIM_OCInitStructure);
 	TIM_OC1PreloadConfig(TIM2, TIM_OCPreload_Disable);
@@ -73,12 +73,27 @@ void rtimer_arch_schedule(rtimer_clock_t t)
 
 void TIM2_handler(void) __attribute__ ((interrupt));
 
+// irq every 1 second
 void TIM2_handler(void) 
 {
+    unsigned short capture;
+    
+    //printf("SR=%x DIER=%x CNT=%d CCR1=%d\n", TIM2->SR, TIM2->DIER, TIM2->CNT, TIM2->CCR1);
     if (TIM_GetITStatus(TIM2, TIM_IT_CC1) != RESET) 
     {
 		TIM_ClearITPendingBit(TIM2, TIM_IT_CC1);
-        
+
+        TIM_SetCounter(TIM2, 0);
+        //capture = TIM_GetCapture1(TIM2);
+        //TIM_SetCompare1(TIM2, capture + RTIMER_ARCH_SECOND);
+    
+        // LED blink
+        //printf("CNT=%d CCR1=%d\n", TIM2->CNT, TIM2->CCR1);
+        if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_8))
+            GPIO_ResetBits(GPIOA, GPIO_Pin_8);
+        else
+            GPIO_SetBits(GPIOA,GPIO_Pin_8);
+            
         ENERGEST_ON(ENERGEST_TYPE_IRQ);
         rtimer_run_next();
         ENERGEST_OFF(ENERGEST_TYPE_IRQ);

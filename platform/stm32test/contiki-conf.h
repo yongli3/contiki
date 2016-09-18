@@ -21,6 +21,8 @@ typedef uint16_t rtimer_clock_t;
 
 // The rate of the system clock
 #define CLOCK_CONF_SECOND       1000
+#define RTIMER_ARCH_SECOND              (60000)
+
 
 #ifndef   MIN
   #define MIN(a, b)         (((a) < (b)) ? (a) : (b))

@@ -49,6 +49,7 @@ clock_time_t clock_time(void)
     return current_clock;
 }
 
+#if 0
 // TODO!!!
 void clock_delay_usec(uint16_t t) 
 {
@@ -57,6 +58,7 @@ void clock_delay_usec(uint16_t t)
         for (j = 0; j < 500; j++) {}
     }
 }
+#endif
 
 unsigned long clock_seconds(void) 
 {
