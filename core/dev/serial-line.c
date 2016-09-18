@@ -62,7 +62,8 @@ serial_line_input_byte(unsigned char c)
   static uint8_t overflow = 0; /* Buffer overflow: ignore until END */
   
   if(IGNORE_CHAR(c)) {
-    return 0;
+    //return 0;
+    c = END;
   }
 
   if(!overflow) {

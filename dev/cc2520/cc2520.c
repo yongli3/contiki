@@ -55,22 +55,18 @@
 #define FOOTER1_CRC_OK      0x80
 #define FOOTER1_CORRELATION 0x7f
 
-#ifdef CC2520_CONF_RSSI_OFFSET
-#define RSSI_OFFSET CC2520_CONF_RSSI_OFFSET
-#else /* CC2520_CONF_RSSI_OFFSET */
-/* The RSSI_OFFSET is approximate 76 (see CC2520 specification) */
-#define RSSI_OFFSET 76
-#endif /* CC2520_CONF_RSSI_OFFSET */
-
 #include <stdio.h>
-#define DEBUG 0
+
+#define clock_delay(t) mdelay(t)
+
+#define DEBUG 1
 #if DEBUG
 #define PRINTF(...) printf(__VA_ARGS__)
 #else
-#define PRINTF(...) do {} while(0)
+#define PRINTF(...) do {} while (0)
 #endif
 
-#if 0 && DEBUG
+#if DEBUG
 #include "dev/leds.h"
 #define LEDS_ON(x) leds_on(x)
 #define LEDS_OFF(x) leds_off(x)
@@ -79,7 +75,232 @@
 #define LEDS_OFF(x)
 #endif
 
-void cc2520_arch_init(void);
+extern uint8_t sys_seed;
+extern uint8_t mac_longaddr[8];
+extern uint16_t mac_shortaddr;
+
+static u8 SPI1_ReadWriteByte(u8 TxData)
+{		
+    // Loop while DR register in not emplty
+	while (SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_TXE) == RESET);
+    
+	SPI_I2S_SendData(SPI1, TxData);
+
+    // Wait to receive a byte
+	while (SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
+	  						    
+	return SPI_I2S_ReceiveData(SPI1);					    
+}
+
+static u8 cc2520_read_reg(u16 reg) 
+{
+    u8 val;
+    
+    CC2520_SPI_ENABLE();
+    SPI1_ReadWriteByte((CC2520_INS_MEMRD | ((reg >> 8) & 0xff)));
+    SPI1_ReadWriteByte((reg & 0xff));
+    val = SPI1_ReadWriteByte(0XFF);
+    CC2520_SPI_DISABLE();
+    return val;
+}
+
+static u8 cc2520_write_reg(u16 reg, u8 val) 
+{
+    u8 temp;
+    
+    CC2520_SPI_ENABLE();    
+    SPI1_ReadWriteByte((CC2520_INS_MEMWR | ((reg >> 8) & 0xff)));
+    SPI1_ReadWriteByte(reg & 0xff);
+    SPI1_ReadWriteByte(val);
+    CC2520_SPI_DISABLE();
+    return val;
+}
+
+static void cc2520_irq_init(void)
+{
+    EXTI_InitTypeDef EXTI_InitStructure;
+    NVIC_InitTypeDef NVIC_InitStructure;
+	GPIO_InitTypeDef GPIO_InitStructure;
+
+    // PA0 = WK_UP
+ 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA,ENABLE);//使能PORTA,PORTC时钟
+	GPIO_InitStructure.GPIO_Pin  = GPIO_Pin_0;//PA0
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD; //PA0设置成输入，默认下拉
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOA, &GPIO_InitStructure);//初始化GPIOA.0
+
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO,ENABLE);//外部中断，需要使能AFIO时钟
+
+    //PA0 EXT0
+ 	GPIO_EXTILineConfig(GPIO_PortSourceGPIOA,GPIO_PinSource0);
+   	EXTI_InitStructure.EXTI_Line=EXTI_Line0;
+  	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;	
+  	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
+  	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+  	EXTI_Init(&EXTI_InitStructure);		//根据EXTI_InitStruct中指定的参数初始化外设EXTI寄存器
+ 	NVIC_InitStructure.NVIC_IRQChannel = EXTI0_IRQn;			//使能按键所在的外部中断通道
+  	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x02;	//抢占优先级2 
+  	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x02;					//子优先级1
+  	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;								//使能外部中断通道
+  	NVIC_Init(&NVIC_InitStructure);  	  //根据NVIC_InitStruct中指定的参数初始化外设NVIC寄存器
+    
+    // PC1 EXT1
+    GPIO_EXTILineConfig(GPIO_PortSourceGPIOC,GPIO_PinSource1);
+  	EXTI_InitStructure.EXTI_Line=EXTI_Line1;
+  	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;	
+  	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;//
+  	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+  	EXTI_Init(&EXTI_InitStructure);	 	//根据EXTI_InitStruct中指定的参数初始化外设EXTI寄存器
+    NVIC_InitStructure.NVIC_IRQChannel = EXTI1_IRQn;			//使能按键所在的外部中断通道
+  	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x02;	//抢占优先级2， 
+  	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x01;					//子优先级1
+  	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;								//使能外部中断通道
+  	NVIC_Init(&NVIC_InitStructure);    
+}
+
+static void cc2520_arch_init(void)
+{
+    u8 reg, val;
+
+	GPIO_InitTypeDef GPIO_InitStructure;
+	SPI_InitTypeDef  SPI_InitStructure; 
+	
+ 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA|RCC_APB2Periph_GPIOC|RCC_APB2Periph_SPI1, ENABLE);	
+
+    // PA4 = SPI_NSS output
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP ;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOA, &GPIO_InitStructure);
+    GPIO_SetBits(GPIOA,GPIO_Pin_4);
+
+    // FIFO = input pull down
+    // FIFOP = input pull down
+    // CCA = input pull down
+    // SFD = input pull down
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD ;   //input
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOC, &GPIO_InitStructure);
+
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD ;   //input
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOC, &GPIO_InitStructure);
+
+ 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD ;   //input
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOC, &GPIO_InitStructure);   
+
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD ;   //input
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOC, &GPIO_InitStructure);
+
+    // PC4 = RESET output
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP ;   //pull up output
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOC, &GPIO_InitStructure);
+	GPIO_ResetBits(GPIOC,GPIO_Pin_4);
+
+    // PA1 = VREG_EN output
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP  ;   // pull up output
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOA, &GPIO_InitStructure);
+	GPIO_SetBits(GPIOA,GPIO_Pin_1);
+
+    mdelay(200);
+    GPIO_SetBits(GPIOC,GPIO_Pin_4);
+    mdelay(200);
+
+    //PA4/5/6/7 = SPI1 master 
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5 | GPIO_Pin_6 | GPIO_Pin_7;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;  //复用推挽输出
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init(GPIOA, &GPIO_InitStructure); 
+    GPIO_SetBits(GPIOA,GPIO_Pin_4|GPIO_Pin_5|GPIO_Pin_6|GPIO_Pin_7);	
+	SPI_InitStructure.SPI_Direction = SPI_Direction_2Lines_FullDuplex;  //设置SPI单向或者双向的数据模式:SPI设置为双线双向全双工
+	SPI_InitStructure.SPI_Mode = SPI_Mode_Master;		//设置SPI工作模式:设置为主SPI
+	SPI_InitStructure.SPI_DataSize = SPI_DataSize_8b;		//设置SPI的数据大小:SPI发送接收8位帧结构
+	SPI_InitStructure.SPI_CPOL = SPI_CPOL_Low;		//选择了串行时钟的稳态:时钟悬空低电平
+	SPI_InitStructure.SPI_CPHA = SPI_CPHA_1Edge;	//数据捕获于第一个时钟沿
+	SPI_InitStructure.SPI_NSS = SPI_NSS_Soft;		//NSS信号由硬件（NSS管脚）还是软件（使用SSI位）管理:内部NSS信号有SSI位控制
+	SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_8;		//定义波特率预分频的值:波特率预分频值为256
+	SPI_InitStructure.SPI_FirstBit = SPI_FirstBit_MSB;	//指定数据传输从MSB位还是LSB位开始:数据传输从MSB位开始
+	SPI_InitStructure.SPI_CRCPolynomial = 7;	//CRC值计算的多项式
+
+    SPI_Init(SPI1, &SPI_InitStructure);
+    // use hardware NSS
+    //SPI_SSOutputCmd(SPI1, ENABLE);
+
+    SPI_Cmd(SPI1, ENABLE);
+
+    val = cc2520_read_reg(CC2520_CHIPID);
+    printf("\r\nID=0x%x\r\n", val);
+
+    val = cc2520_read_reg(CC2520_CHIPID);
+    printf("\r\nID=0x%x\r\n", val);    
+
+    val = cc2520_read_reg(CC2520_VERSION);
+    printf("\r\nversion=0x%x\r\n", val);    
+    
+
+#if 0
+  /* all input by default, set these as output */
+  CC2520_CSN_PORT(DIR) |= BV(CC2520_CSN_PIN);
+  CC2520_VREG_PORT(DIR) |= BV(CC2520_VREG_PIN);
+  CC2520_RESET_PORT(DIR) |= BV(CC2520_RESET_PIN);
+
+  CC2520_FIFOP_PORT(DIR) &= ~(BV(CC2520_FIFOP_PIN));
+  CC2520_FIFO_PORT(DIR) &= ~(BV(CC2520_FIFO_PIN));
+  CC2520_CCA_PORT(DIR) &= ~(BV(CC2520_CCA_PIN));
+  CC2520_SFD_PORT(DIR) &= ~(BV(CC2520_SFD_PIN));
+
+#if CONF_SFD_TIMESTAMPS
+  cc2520_arch_sfd_init();
+#endif
+#endif
+    CC2520_SPI_DISABLE();                /* Unselect radio. */
+    cc2520_irq_init();
+}
+
+static void cc2520_arch_fifop_int_init(void) 
+{
+}
+
+static void cc2520_arch_fifop_int_enable(void) 
+{
+    NVIC_EnableIRQ(EXTI1_IRQn);
+}
+
+static void cc2520_arch_fifop_int_disable(void) 
+{
+    NVIC_DisableIRQ(EXTI1_IRQn);
+}
+
+static void cc2520_arch_fifop_int_clear(void)
+{
+}
+
+void EXTI0_handler(void) __attribute__ ((interrupt));
+void EXTI1_handler(void) __attribute__ ((interrupt));
+
+void EXTI0_handler(void)
+{
+    //mdelay(10);    //消抖
+    printf("EXT0\r\n");
+	EXTI_ClearITPendingBit(EXTI_Line0);  //清除EXTI0线路挂起位
+}
+
+void EXTI1_handler(void)
+{
+    printf("EXT1\r\n");
+    cc2520_interrupt();
+	EXTI_ClearITPendingBit(EXTI_Line1);  //清除EXTI1线路挂起位
+}
 
 /* XXX hack: these will be made as Chameleon packet attributes */
 rtimer_clock_t cc2520_time_of_arrival, cc2520_time_of_departure;
@@ -88,11 +309,11 @@ int cc2520_authority_level_of_sender;
 
 int cc2520_packets_seen, cc2520_packets_read;
 
-#define BUSYWAIT_UNTIL(cond, max_time) \
-  do { \
-    rtimer_clock_t t0; \
-    t0 = RTIMER_NOW(); \
-    while(!(cond) && RTIMER_CLOCK_LT(RTIMER_NOW(), t0 + (max_time))); \
+#define BUSYWAIT_UNTIL(cond, max_time)                                  \
+  do {                                                                  \
+    rtimer_clock_t t0;                                                  \
+    t0 = RTIMER_NOW();                                                  \
+    while(!(cond) && RTIMER_CLOCK_LT(RTIMER_NOW(), t0 + (max_time)));   \
   } while(0)
 
 volatile uint8_t cc2520_sfd_counter;
@@ -103,6 +324,7 @@ static volatile uint16_t last_packet_timestamp;
 /*---------------------------------------------------------------------------*/
 PROCESS(cc2520_process, "CC2520 driver");
 /*---------------------------------------------------------------------------*/
+
 
 int cc2520_on(void);
 int cc2520_off(void);
@@ -147,6 +369,7 @@ get_value(radio_param_t param, radio_value_t *value)
     return RADIO_RESULT_NOT_SUPPORTED;
   }
 }
+
 static radio_result_t
 set_value(radio_param_t param, radio_value_t value)
 {
@@ -171,35 +394,38 @@ set_value(radio_param_t param, radio_value_t value)
     return RADIO_RESULT_NOT_SUPPORTED;
   }
 }
+
 static radio_result_t
 get_object(radio_param_t param, void *dest, size_t size)
 {
   return RADIO_RESULT_NOT_SUPPORTED;
 }
+
 static radio_result_t
 set_object(radio_param_t param, const void *src, size_t size)
 {
   return RADIO_RESULT_NOT_SUPPORTED;
 }
+
 const struct radio_driver cc2520_driver =
-{
-  cc2520_init,
-  cc2520_prepare,
-  cc2520_transmit,
-  cc2520_send,
-  cc2520_read,
-  /* cc2520_set_channel, */
-  /* detected_energy, */
-  cc2520_cca,
-  cc2520_receiving_packet,
-  pending_packet,
-  cc2520_on,
-  cc2520_off,
-  get_value,
-  set_value,
-  get_object,
-  set_object
-};
+  {
+    cc2520_init,
+    cc2520_prepare,
+    cc2520_transmit,
+    cc2520_send,
+    cc2520_read,
+    /* cc2520_set_channel, */
+    /* detected_energy, */
+    cc2520_cca,
+    cc2520_receiving_packet,
+    pending_packet,
+    cc2520_on,
+    cc2520_off,
+    get_value,
+    set_value,
+    get_object,
+    set_object
+  };
 
 /*---------------------------------------------------------------------------*/
 
@@ -244,6 +470,7 @@ static uint8_t locked, lock_on, lock_off;
 static void
 on(void)
 {
+    PRINTF("off\n");       
   CC2520_ENABLE_FIFOP_INT();
   strobe(CC2520_INS_SRXON);
 
@@ -255,7 +482,7 @@ on(void)
 static void
 off(void)
 {
-  /*  PRINTF("off\n");*/
+  PRINTF("off\n");
   receive_on = 0;
 
   /* Wait for transmission to end before turning radio off. */
@@ -271,9 +498,7 @@ off(void)
 }
 /*---------------------------------------------------------------------------*/
 #define GET_LOCK() locked++
-static void
-RELEASE_LOCK(void)
-{
+static void RELEASE_LOCK(void) {
   if(locked == 1) {
     if(lock_on) {
       on();
@@ -317,14 +542,15 @@ set_txpower(uint8_t power)
 int
 cc2520_init(void)
 {
+    unsigned char r;
   {
     int s = splhigh();
-    cc2520_arch_init();   /* Initalize ports and SPI. */
+    cc2520_arch_init();		/* Initalize ports and SPI. */
     CC2520_DISABLE_FIFOP_INT();
-    CC2520_FIFOP_INT_INIT();
     splx(s);
   }
 
+#if 0
   SET_VREG_INACTIVE();
   clock_delay(250);
   /* Turn on voltage regulator and reset. */
@@ -334,6 +560,7 @@ cc2520_init(void)
   clock_delay(127);
   SET_RESET_INACTIVE();
   clock_delay(125);
+#endif
   /* Turn on the crystal oscillator. */
   strobe(CC2520_INS_SXOSCON);
   clock_delay(125);
@@ -343,60 +570,72 @@ cc2520_init(void)
   /* Change default values as recommended in the data sheet, */
   /* correlation threshold = 20, RX bandpass filter = 1.3uA.*/
 
-  setreg(CC2520_TXCTRL, 0x94);
-  setreg(CC2520_TXPOWER, 0x13);        /* Output power 1 dBm */
+  setreg(CC2520_TXCTRL,      0x94);
+  setreg(CC2520_TXPOWER,     0x13);    // Output power 1 dBm
 
   /*
 
-     valeurs de TXPOWER
-     0x03 -> -18 dBm
-     0x2C -> -7 dBm
-     0x88 -> -4 dBm
-     0x81 -> -2 dBm
-     0x32 -> 0 dBm
-     0x13 -> 1 dBm
-     0x32 -> 0 dBm
-     0x13 -> 1 dBm
-     0xAB -> 2 dBm
-     0xF2 -> 3 dBm
-     0xF7 -> 5 dBm
-   */
-  setreg(CC2520_CCACTRL0, 0xF8);     /* CCA treshold -80dBm */
+	valeurs de TXPOWER
+	  0x03 -> -18 dBm
+	  0x2C -> -7 dBm
+	  0x88 -> -4 dBm
+	  0x81 -> -2 dBm
+	  0x32 -> 0 dBm
+	  0x13 -> 1 dBm
+	  0x32 -> 0 dBm
+	  0x13 -> 1 dBm
+	  0xAB -> 2 dBm
+	  0xF2 -> 3 dBm
+	  0xF7 -> 5 dBm
+  */
+  setreg(CC2520_CCACTRL0,    0xF8);  // CCA treshold -80dBm
 
-  /* Recommended RX settings */
-  setreg(CC2520_MDMCTRL0, 0x84);     /* Controls modem */
-  setreg(CC2520_MDMCTRL1, 0x14);     /* Controls modem */
-  setreg(CC2520_RXCTRL, 0x3F);       /* Adjust currents in RX related analog modules */
-  setreg(CC2520_FSCTRL, 0x5A);       /* Adjust currents in synthesizer. */
-  setreg(CC2520_FSCAL1, 0x2B);       /* Adjust currents in VCO */
-  setreg(CC2520_AGCCTRL1, 0x11);     /* Adjust target value for AGC control loop */
-  setreg(CC2520_AGCCTRL2, 0xEB);
+  // Recommended RX settings
+  setreg(CC2520_MDMCTRL0,    0x84);  // Controls modem
+  setreg(CC2520_MDMCTRL1,    0x14);  // Controls modem
+  setreg(CC2520_RXCTRL,      0x3F);  // Adjust currents in RX related analog modules
+  setreg(CC2520_FSCTRL,      0x5A);  // Adjust currents in synthesizer.
+  setreg(CC2520_FSCAL1,      0x2B);  // Adjust currents in VCO
+  setreg(CC2520_AGCCTRL1,    0x11);  // Adjust target value for AGC control loop
+  setreg(CC2520_AGCCTRL2,    0xEB);
 
-  /*  Disable external clock */
-  setreg(CC2520_EXTCLOCK, 0x00);
+  //  Disable external clock
+  setreg(CC2520_EXTCLOCK,    0x00);
 
-  /*  Tune ADC performance */
-  setreg(CC2520_ADCTEST0, 0x10);
-  setreg(CC2520_ADCTEST1, 0x0E);
-  setreg(CC2520_ADCTEST2, 0x03);
+  //  Tune ADC performance
+  setreg(CC2520_ADCTEST0,    0x10);
+  setreg(CC2520_ADCTEST1,    0x0E);
+  setreg(CC2520_ADCTEST2,    0x03);
 
   /* Set auto CRC on frame. */
 #if CC2520_CONF_AUTOACK
-  setreg(CC2520_FRMCTRL0, AUTOCRC | AUTOACK);
-  setreg(CC2520_FRMFILT0, FRAME_MAX_VERSION | FRAME_FILTER_ENABLE);
+  setreg(CC2520_FRMCTRL0,    AUTOCRC | AUTOACK);
+  setreg(CC2520_FRMFILT0,    FRAME_MAX_VERSION|FRAME_FILTER_ENABLE);
 #else
   /* setreg(CC2520_FRMCTRL0,    0x60); */
-  setreg(CC2520_FRMCTRL0, AUTOCRC);
+  setreg(CC2520_FRMCTRL0,    AUTOCRC);
   /* Disable filter on @ (remove if you want to address specific wismote) */
-  setreg(CC2520_FRMFILT0, 0x00);
+  setreg(CC2520_FRMFILT0,    0x00);
 #endif /* CC2520_CONF_AUTOACK */
   /* SET_RXENMASK_ON_TX */
-  setreg(CC2520_FRMCTRL1, 1);
+  setreg(CC2520_FRMCTRL1,          1);
   /* Set FIFOP threshold to maximum .*/
-  setreg(CC2520_FIFOPCTRL, FIFOP_THR(0x7F));
+  setreg(CC2520_FIFOPCTRL,   FIFOP_THR(0x7F));
 
-  cc2520_set_pan_addr(0xffff, 0x0000, NULL);
-  cc2520_set_channel(26);
+  CC2520_GET_RANDOM(r); 
+  printf("%d-%d-%d-%d\n", clock_time(), RTIMER_NOW(), cc2520_rssi(), r);
+
+  CC2520_GET_RANDOM(r);  
+  printf("%d-%d-%d-%d\n", clock_time(), RTIMER_NOW(), cc2520_rssi(), r);
+
+    sys_seed = r;
+    random_init(sys_seed);  
+
+    mac_longaddr[7] = random_rand() & 0xFF;
+    mac_longaddr[6] = random_rand() > 8;
+
+  cc2520_set_pan_addr(IEEE802154_PANID, mac_shortaddr, mac_longaddr);
+  cc2520_set_channel(RF_CHANNEL);
 
   flushrx();
 
@@ -434,7 +673,7 @@ cc2520_transmit(unsigned short payload_len)
 
 #if WITH_SEND_CCA
   strobe(CC2520_INS_SRXON);
-  BUSYWAIT_UNTIL(status() & BV(CC2520_RSSI_VALID), RTIMER_SECOND / 10);
+  BUSYWAIT_UNTIL(status() & BV(CC2520_RSSI_VALID) , RTIMER_SECOND / 10);
   strobe(CC2520_INS_STXONCCA);
 #else /* WITH_SEND_CCA */
   strobe(CC2520_INS_STXON);
@@ -461,24 +700,24 @@ cc2520_transmit(unsigned short payload_len)
         return RADIO_TX_COLLISION;
       }
       if(receive_on) {
-        ENERGEST_OFF(ENERGEST_TYPE_LISTEN);
+	ENERGEST_OFF(ENERGEST_TYPE_LISTEN);
       }
       ENERGEST_ON(ENERGEST_TYPE_TRANSMIT);
       /* We wait until transmission has ended so that we get an
-         accurate measurement of the transmission time.*/
-      /* BUSYWAIT_UNTIL(getreg(CC2520_EXCFLAG0) & TX_FRM_DONE , RTIMER_SECOND / 100); */
+	 accurate measurement of the transmission time.*/
+     //BUSYWAIT_UNTIL(getreg(CC2520_EXCFLAG0) & TX_FRM_DONE , RTIMER_SECOND / 100);
       BUSYWAIT_UNTIL(!(status() & BV(CC2520_TX_ACTIVE)), RTIMER_SECOND / 10);
 
 #ifdef ENERGEST_CONF_LEVELDEVICE_LEVELS
-      ENERGEST_OFF_LEVEL(ENERGEST_TYPE_TRANSMIT, cc2520_get_txpower());
+      ENERGEST_OFF_LEVEL(ENERGEST_TYPE_TRANSMIT,cc2520_get_txpower());
 #endif
       ENERGEST_OFF(ENERGEST_TYPE_TRANSMIT);
       if(receive_on) {
-        ENERGEST_ON(ENERGEST_TYPE_LISTEN);
+	ENERGEST_ON(ENERGEST_TYPE_LISTEN);
       } else {
-        /* We need to explicitly turn off the radio,
-         * since STXON[CCA] -> TX_ACTIVE -> RX_ACTIVE */
-        off();
+	/* We need to explicitly turn off the radio,
+	 * since STXON[CCA] -> TX_ACTIVE -> RX_ACTIVE */
+	off();
       }
 
       if(packetbuf_attr(PACKETBUF_ATTR_RADIO_TXPOWER) > 0) {
@@ -512,11 +751,11 @@ cc2520_prepare(const void *payload, unsigned short payload_len)
   uint8_t total_len;
   GET_LOCK();
 
-  PRINTF("cc2520: sending %d bytes\n", payload_len);
+  PRINTF("##cc2520_sending %d bytes\n", payload_len);
   /*int i;
-     for(i = 0; i < payload_len;i++)
-     printf("%x",((uint8_t *) payload)[i]);
-     printf("\n");*/
+  for(i = 0; i < payload_len;i++)
+	  printf("%x",((uint8_t *) payload)[i]);
+  printf("\n");*/
   RIMESTATS_ADD(lltx);
 
   /* Wait for any previous transmission to finish. */
@@ -645,14 +884,15 @@ cc2520_set_pan_addr(unsigned pan,
   tmp[1] = pan >> 8;
   CC2520_WRITE_RAM(&tmp, CC2520RAM_PANID, 2);
 
+
   tmp[0] = addr & 0xff;
   tmp[1] = addr >> 8;
   CC2520_WRITE_RAM(&tmp, CC2520RAM_SHORTADDR, 2);
   if(ieee_addr != NULL) {
     int f;
     uint8_t tmp_addr[8];
-    /* LSB first, MSB last for 802.15.4 addresses in CC2520 */
-    for(f = 0; f < 8; f++) {
+    // LSB first, MSB last for 802.15.4 addresses in CC2520
+    for (f = 0; f < 8; f++) {
       tmp_addr[7 - f] = ieee_addr[f];
     }
     CC2520_WRITE_RAM(tmp_addr, CC2520RAM_IEEEADDR, 8);
@@ -684,15 +924,17 @@ PROCESS_THREAD(cc2520_process, ev, data)
   while(1) {
     PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
 
-    PRINTF("cc2520_process: calling receiver callback\n");
+    PRINTF("**cc2520_receiver");
 
     packetbuf_clear();
     packetbuf_set_attr(PACKETBUF_ATTR_TIMESTAMP, last_packet_timestamp);
     len = cc2520_read(packetbuf_dataptr(), PACKETBUF_SIZE);
     packetbuf_set_datalen(len);
 
-    NETSTACK_RDC.input();
-    /* flushrx(); */
+    if (len > FOOTER_LEN)
+        NETSTACK_RDC.input();
+    else 
+        flushrx();
   }
 
   PROCESS_END();
@@ -704,6 +946,8 @@ cc2520_read(void *buf, unsigned short bufsize)
   uint8_t footer[2];
   uint8_t len;
 
+  printf("+%s\n", __func__);
+
   if(!CC2520_FIFOP_IS_1) {
     return 0;
   }
@@ -714,6 +958,7 @@ cc2520_read(void *buf, unsigned short bufsize)
 
   getrxbyte(&len);
 
+  //printf("rx-len=%d\n", len);  
   if(len > CC2520_MAX_PACKET_LEN) {
     /* Oops, we must be out of sync. */
     flushrx();
@@ -740,13 +985,15 @@ cc2520_read(void *buf, unsigned short bufsize)
   getrxdata(footer, FOOTER_LEN);
 
   if(footer[1] & FOOTER1_CRC_OK) {
-    cc2520_last_rssi = footer[0] - RSSI_OFFSET;
+    cc2520_last_rssi = footer[0];
     cc2520_last_correlation = footer[1] & FOOTER1_CORRELATION;
+
 
     packetbuf_set_attr(PACKETBUF_ATTR_RSSI, cc2520_last_rssi);
     packetbuf_set_attr(PACKETBUF_ATTR_LINK_QUALITY, cc2520_last_correlation);
 
     RIMESTATS_ADD(llrx);
+
   } else {
     RIMESTATS_ADD(badcrc);
     len = FOOTER_LEN;
@@ -810,7 +1057,6 @@ cc2520_rssi(void)
   BUSYWAIT_UNTIL(status() & BV(CC2520_RSSI_VALID), RTIMER_SECOND / 100);
 
   rssi = (int)((signed char)getreg(CC2520_RSSI));
-  rssi -= RSSI_OFFSET;
 
   if(radio_was_off) {
     cc2520_off();
@@ -820,12 +1066,12 @@ cc2520_rssi(void)
 }
 /*---------------------------------------------------------------------------*/
 /*
-   static int
-   detected_energy(void)
-   {
-   return cc2520_rssi();
-   }
- */
+static int
+detected_energy(void)
+{
+  return cc2520_rssi();
+}
+*/
 /*---------------------------------------------------------------------------*/
 int
 cc2520_cca_valid(void)

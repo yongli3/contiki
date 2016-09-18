@@ -19,14 +19,14 @@ CONTIKI_CPU_DIRS = . ../common/dbg-io ../common/usb loader
 
 
 
-STM32F103     = cc2520-arch.c stm32f10x_exti.c stm32f10x_rcc.c stm32f10x_spi.c stm32f10x_gpio.c watchdog.c clock.c debug-uart.c rtimer-arch.c # interrupt-utils.c newlib-syscalls.c sys-interrupt.c rtimer-arch.c rtimer-arch-interrupt.c uip-log.c
+STM32F103     = misc.c stm32f10x_tim.c stm32f10x_usart.c stm32f10x_exti.c stm32f10x_rcc.c stm32f10x_spi.c stm32f10x_gpio.c watchdog.c clock.c uart-debug.c rtimer-arch.c # interrupt-utils.c newlib-syscalls.c sys-interrupt.c rtimer-arch.c rtimer-arch-interrupt.c uip-log.c
 
 # SYSAPPS = codeprop-otf.c
 # APPDIRS += $(CONTIKI)/cpu/at91sam7s/loader
 
 # ELFLOADER = elfloader-otf.c elfloader-arm.c symtab.c cfs-ram.c
 
-include $(CONTIKI_CPU_ARM_COMMON)/usb/Makefile.usb
+# include $(CONTIKI_CPU_ARM_COMMON)/usb/Makefile.usb
 
 include $(CONTIKI_CPU_ARM_COMMON)/SD-card/Makefile.sdcard
 
@@ -76,7 +76,7 @@ CFLAGSNO = -I. -I$(CONTIKI)/core -I$(CONTIKI_CPU) -I$(CONTIKI_CPU)/loader \
 	   -I$(CONTIKI_CPU)/dbg-io \
            -I$(CONTIKI)/platform/$(TARGET) -I-I$(CONTIKI)/cpu/arm/common/CMSIS \
            ${addprefix -I,$(APPDIRS)} \
-           -DWITH_ASCII -DMCK=$(MCK)  \
+           -DWITH_ASCII -DMCK=$(MCK)  -DUSE_STDPERIPH_DRIVER \
            -Wall $(ARCH_FLAGS) -g -D SUBTARGET=$(SUBTARGET)
 
 CFLAGS  += $(CFLAGSNO) -O -DRUN_AS_SYSTEM -DROM_RUN
