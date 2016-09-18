@@ -40,6 +40,7 @@ int main()
     int i;
     
     platform_init();
+    //while (1);    
     printf("Hello Contiki\n");
     printf("_etext=%x data[%x-%x] bss[%x-%x]\n", _etext, _data, _edata, __bss_start, __bss_end);
 
