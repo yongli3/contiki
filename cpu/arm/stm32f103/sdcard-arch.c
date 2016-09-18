@@ -1,4 +1,4 @@
-#include <stm32f10x_map.h>
+#include <stm32f10x.h>
 #include <sdcard.h>
 #include <sys/process.h>
 #include <sys/etimer.h>

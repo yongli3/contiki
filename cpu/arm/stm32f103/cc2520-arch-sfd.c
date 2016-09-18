@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, Swedish Institute of Computer Science.
+ * Copyright (c) 2011, Swedish Institute of Computer Science
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,71 +25,53 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * This file is part of the Contiki operating system.
- *
- */
-
-/**
- * \file
- *         Contiki shell example
- * \author
- *         Fredrik Osterlind <fros@sics.se>
  */
 
 #include "contiki.h"
-#include "shell.h"
-#include "serial-shell.h"
+#include "dev/spi.h"
+#include "dev/cc2520/cc2520.h"
+#include "isr_compat.h"
 
-#include "net/rime/rime.h"
-#include "dev/leds.h"
-#include "net/rime/timesynch.h"
-
-#include <stdio.h>
-#include <string.h>
+extern volatile uint8_t cc2520_sfd_counter;
+extern volatile uint16_t cc2520_sfd_start_time;
+extern volatile uint16_t cc2520_sfd_end_time;
 
 /*---------------------------------------------------------------------------*/
-PROCESS(example_shell_process, "Contiki shell");
-AUTOSTART_PROCESSES(&example_shell_process);
-/*---------------------------------------------------------------------------*/
-PROCESS_THREAD(example_shell_process, ev, data)
+/* SFD interrupt for timestamping radio packets */
+ISR(TIMERB1, cc2520_timerb1_interrupt)
 {
-  PROCESS_BEGIN();
+  int tbiv;
+  ENERGEST_ON(ENERGEST_TYPE_IRQ);
+  /* always read TBIV to clear IFG */
+  tbiv = TBIV;
+  /* read and discard tbiv to avoid "variable set but not used" warning */
+  (void)tbiv;
+  if(CC2520_SFD_IS_1) {
+    cc2520_sfd_counter++;
+    cc2520_sfd_start_time = TBCCR1;
+  } else {
+    cc2520_sfd_counter = 0;
+    cc2520_sfd_end_time = TBCCR1;
+  }
+  ENERGEST_OFF(ENERGEST_TYPE_IRQ);
+}
+/*---------------------------------------------------------------------------*/
+void
+cc2520_arch_sfd_init(void)
+{
+  /* Need to select the special function! */
+  CC2520_SFD_PORT(SEL) = BV(CC2520_SFD_PIN);
 
-  serial_shell_init();
+  /* start timer B - 32768 ticks per second */
+  TBCTL = TBSSEL_1 | TBCLR;
 
-  //shell_base64_init();
-  //shell_blink_init();
-  /*shell_coffee_init();*/
-  //shell_download_init();
-  /*shell_exec_init();*/
-  //shell_file_init();
-  //shell_httpd_init();
-  shell_irc_init();
-  /*shell_ping_init();*/ /* uIP ping */
-  shell_power_init();
-  /*shell_profile_init();*/
-  shell_ps_init();
-  /*shell_reboot_init();*/
-#if CONTIKI_WITH_RIME 
-  shell_rime_debug_init();
-  shell_rime_netcmd_init();
-  shell_rime_ping_init(); /* Rime ping */
-  shell_rime_sendcmd_init();
-  shell_rime_sniff_init();
-  shell_rime_init();
-#endif
-  /*shell_rsh_init();*/
-  shell_run_init();
-  //shell_sendtest_init();
-  /*shell_sky_init();*/
-  shell_tcpsend_init();
-  shell_text_init();
-  shell_time_init();
-  shell_udpsend_init();
-  //shell_vars_init();
-  shell_wget_init();
+  /* CM_3 = capture mode - capture on both edges */
+  TBCCTL1 = CM_3 | CAP | SCS;
+  TBCCTL1 |= CCIE;
 
-  PROCESS_END();
+  /* Start Timer_B in continuous mode. */
+  TBCTL |= MC1;
+
+  TBR = RTIMER_NOW();
 }
 /*---------------------------------------------------------------------------*/

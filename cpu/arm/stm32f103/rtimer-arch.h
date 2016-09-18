@@ -10,8 +10,6 @@
 
 #include "sys/rtimer.h"
 
-#define RTIMER_ARCH_SECOND (MCK/1024)
-
 void rtimer_arch_set(rtimer_clock_t t);
 
 rtimer_clock_t rtimer_arch_now(void);

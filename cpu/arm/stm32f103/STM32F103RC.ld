@@ -44,6 +44,7 @@ SECTIONS
   {
     _data = . ;
     *(.data)
+	*(.data.*)
     _edata = . ;
     PROVIDE (edata = .);
   } >DATA AT >CODE
@@ -57,6 +58,7 @@ SECTIONS
     __bss_start = . ;
     __bss_start__ = . ;
     *(.bss)
+	*(.bss.*)
     *(COMMON)
     __bss_end = . ;	
     __bss_end__ = . ;

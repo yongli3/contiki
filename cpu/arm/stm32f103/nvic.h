@@ -1,6 +1,6 @@
 #ifndef NVIC_H_LE94F5JS4D__
 #define NVIC_H_LE94F5JS4D__
-#include <stm32f10x_map.h>
+#include <stm32f10x.h>
 #include <stm32f10x_nvic.h>
 
 #define NVIC_ENABLE_INT(i) WRITE_REG(NVIC->ISER[(i)/32], 1<<((i) & 0x1f))
