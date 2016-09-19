@@ -11,6 +11,38 @@
 #define PRINTF(...)
 #endif
 
+// Used for udelay
+static void TIM3_init(void)
+{
+	TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
+	uint16_t PrescalerValue = 0;
+    unsigned int counter_clock = 1 * 1000 * 1000;
+
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
+
+    // counter clock(CK_CNT) = TIMxCLK(Fck_psc) / [PSC + 1]
+    // TIM2CLK = PCK1 X 2
+    // PSC(Prescaler) = (TIM2CLK / counter_clock) - 1
+	PrescalerValue = (uint16_t) ((SystemCoreClock) / counter_clock) - 1;
+    printf("%s sysclk=%d prescal=%d\n", __func__, SystemCoreClock, PrescalerValue);
+	/* Time base configuration */
+	TIM_TimeBaseStructure.TIM_Period = 0xFFFF;
+	TIM_TimeBaseStructure.TIM_Prescaler = PrescalerValue;
+	TIM_TimeBaseStructure.TIM_ClockDivision = 0;
+	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+	TIM_TimeBaseInit(TIM3, &TIM_TimeBaseStructure);
+	TIM_Cmd(TIM3, DISABLE);
+}
+
+void clock_delay_usec(uint16_t t) 
+{
+    TIM3->CNT = 0;
+    TIM_Cmd(TIM3, ENABLE);
+
+    while (TIM3->CNT < (t-1) * 1);
+    TIM_Cmd(TIM3, DISABLE);
+}
+
 void rtimer_arch_init(void) 
 {
 	TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
@@ -57,7 +89,9 @@ void rtimer_arch_init(void)
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x01;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&NVIC_InitStructure);
-	
+
+    TIM3_init();
+    
 	PRINTF("rtimer_arch_init done\r\n");
 }
 
@@ -89,11 +123,12 @@ void TIM2_handler(void)
     
         // LED blink
         //printf("CNT=%d CCR1=%d\n", TIM2->CNT, TIM2->CCR1);
+#if 0
         if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_8))
             GPIO_ResetBits(GPIOA, GPIO_Pin_8);
         else
             GPIO_SetBits(GPIOA,GPIO_Pin_8);
-            
+ #endif           
         ENERGEST_ON(ENERGEST_TYPE_IRQ);
         rtimer_run_next();
         ENERGEST_OFF(ENERGEST_TYPE_IRQ);

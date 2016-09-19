@@ -46,8 +46,23 @@ int main()
 
     //LED OFF
     GPIO_SetBits(GPIOA,GPIO_Pin_8);
-    GPIO_SetBits(GPIOD,GPIO_Pin_2);    
+    GPIO_SetBits(GPIOD,GPIO_Pin_2);
 
+#if 0
+    // test udelay
+    while (1) {
+        for (i = 0; i < 1; i++) {  
+            clock_delay_usec(7);
+        }
+
+        //printf("CLK %d\n", clock_seconds());
+        
+        if (GPIO_ReadInputDataBit(GPIOD, GPIO_Pin_2))
+            GPIO_ResetBits(GPIOD, GPIO_Pin_2);
+        else
+            GPIO_SetBits(GPIOD, GPIO_Pin_2);
+    }
+#endif   
     mdelay(300);
     // LED ON
     GPIO_ResetBits(GPIOA,GPIO_Pin_8);
