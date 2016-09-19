@@ -13,6 +13,7 @@ uint32_t SystemCoreClock = MCK;
 void
 SysTick_handler(void) __attribute__ ((interrupt));
 
+// IRQ=CLOCK_SECOND Hz
 void
 SysTick_handler(void)
 {
@@ -48,17 +49,6 @@ clock_time_t clock_time(void)
 {
     return current_clock;
 }
-
-#if 0
-// TODO!!!
-void clock_delay_usec(uint16_t t) 
-{
-    volatile int i, j;
-    for (i = 0; i < t; i++) {
-        for (j = 0; j < 500; j++) {}
-    }
-}
-#endif
 
 unsigned long clock_seconds(void) 
 {

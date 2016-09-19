@@ -6,17 +6,17 @@
 #define CCIF
 #define CLIF
 
-// Types for clocks and uip_stats
-typedef uint16_t clock_time_t;
-
 typedef uint8_t   u8_t;
 typedef uint16_t u16_t;
 typedef uint32_t u32_t;
 typedef int32_t s32_t;
 typedef unsigned short uip_stats_t;
 
+// Types for clocks and uip_stats
+typedef uint32_t clock_time_t;
+
 // rtimer
-typedef uint16_t rtimer_clock_t;
+//typedef uint16_t rtimer_clock_t;
 //#define RTIMER_CLOCK_LT(a,b)     ((int16_t)((a)-(b)) < 0)
 
 // The rate of the system clock

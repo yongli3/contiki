@@ -73,7 +73,6 @@ void EXTI1_handler(void) __attribute__ ((interrupt));
 
 void EXTI0_handler(void)
 {
-    //mdelay(10);    //消抖
     printf("EXT0\r\n");
 	EXTI_ClearITPendingBit(EXTI_Line0);  //清除EXTI0线路挂起位
 }
