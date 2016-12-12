@@ -34,21 +34,24 @@ void USART2_handler(void)
 {
     static unsigned char led = 1;
     uint8_t temp = 0;
-    if (USART_GetITStatus(USART2, USART_IT_RXNE) != RESET)
-    {
+    if (USART_GetITStatus(USART2, USART_IT_RXNE) != RESET) {
         temp = USART_ReceiveData(USART2);
-        printf("%x\r\n", temp);
+        printf("UART2=%x\r\n", temp);
 
-        if (0x31 == temp) {
-            led = !led;
-            if (led) // LED ON
-               GPIO_WriteBit(GPIOA, GPIO_Pin_8, Bit_RESET);
-            else  // LED OFF
-               GPIO_WriteBit(GPIOA, GPIO_Pin_8, Bit_SET);
-        }
-        if (0x30 == temp) {    
+        if (0x31 == temp) { // LEF ON
+            led = 1;            
+            GPIO_WriteBit(GPIOA, GPIO_Pin_8, Bit_RESET);
+            GPIO_WriteBit(GPIOD, GPIO_Pin_2, Bit_RESET);
             USART_SendData(USART2, led?'1':'0');
-            while(USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET );
+            while(USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET);    
+        }
+        
+        if (0x30 == temp) {// LED OFF
+            led = 0;
+            GPIO_WriteBit(GPIOA, GPIO_Pin_8, Bit_SET);
+            GPIO_WriteBit(GPIOD, GPIO_Pin_2, Bit_SET);             
+            USART_SendData(USART2, led?'1':'0');
+            while(USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET);
         }
         //process_post(&receive_process, event_data_ready, (void*)&counter);        
     }
