@@ -2,10 +2,10 @@
 #define CONTIKI_CONF_H
 
 #include "platform-conf.h"
-#include "core/ctk/ctk-conio.h"
 
 #define arch_isprint(c) ((unsigned)((c) - 0x20) <= (0x7e - 0x20))
 #define ctk_arch_isprint arch_isprint
+
 #define ctk_arch_getkey  arch_getkey
 #define ctk_arch_keyavail arch_keyavail
 

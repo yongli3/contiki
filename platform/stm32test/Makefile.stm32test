@@ -15,7 +15,7 @@ CONTIKI_TARGET_SOURCEFILES += $(SENSORS) $(STEPPER_ROBOT) \
  $(CODEPROP_SOURCES) $(CONTIKI_TARGET_MAIN)
 
 ifeq ($(CONTIKI_WITH_IPV6),1)
-MODULES +=  core/net core/net/mac core/net/mac/sicslowmac /dev/cc2520 core/ctk core/ctk/libconio
+MODULES +=  core/net core/net/mac core/net/mac/sicslowmac /dev/cc2520 core/ctk core/ctk/libconio core/net/ip64 /dev/enc28j60
 CONTIKI_TARGET_SOURCEFILES += linkaddr.c link-stats.c queuebuf.c nullmac.c packetbuf.c \
                               frame802154.c framer-802154.c nullsec.c nbr-table.c ctk.c libconio.c
 endif
