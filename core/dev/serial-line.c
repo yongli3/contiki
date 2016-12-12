@@ -55,6 +55,7 @@ PROCESS(serial_line_process, "Serial driver");
 
 process_event_t serial_line_event_message;
 
+/* called by the UART1 RX interrupt */
 /*---------------------------------------------------------------------------*/
 int
 serial_line_input_byte(unsigned char c)

@@ -19,6 +19,7 @@
 #include "uart-debug.h"
 
 PROCESS_NAME(udp_client_process);
+PROCESS_NAME(about_process);
 
 extern uint8_t _data[];
 extern uint8_t _etext[];
@@ -40,8 +41,8 @@ int main()
     int i;
     
     platform_init();
-    //while (1);    
-    printf("Hello Contiki\n");
+    //while (1);
+    printf("%s-%s Hello Contiki\n", __DATE__, __TIME__);
     printf("_etext=%x data[%x-%x] bss[%x-%x]\n", _etext, _data, _edata, __bss_start, __bss_end);
 
     //LED OFF
@@ -183,16 +184,15 @@ for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
         //cc2520_set_pan_addr(IEEE802154_PANID, shortaddr, longaddr);
       }
 
-
     NETSTACK_RDC.init();
     NETSTACK_LLSEC.init();
     NETSTACK_MAC.init();
     NETSTACK_NETWORK.init();
     
-    printf(CONTIKI_VERSION_STRING "TCP started.. RSSI=%d\n", cc2520_rssi());
+    printf(CONTIKI_VERSION_STRING "\n\nTCP started.. RSSI=%d\n", cc2520_rssi());
 
     process_start(&tcpip_process, NULL);
-
+    process_start(&about_process, NULL);
         // test ping6
       //process_start(&ping6_process, NULL);
 

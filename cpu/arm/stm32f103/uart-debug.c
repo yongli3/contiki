@@ -8,6 +8,29 @@ int (* uart1_input_handler)(unsigned char c) = NULL;
 void USART1_handler() __attribute__((interrupt));
 void USART2_handler() __attribute__((interrupt));
 
+unsigned char uart1_ch_avail = 0;
+char uart1_ch = 0;
+
+void ctk_arch_draw_char(char c,
+			unsigned char xpos,
+			unsigned char ypos,
+			unsigned char reversedflag,
+			unsigned char color)
+{
+    fputc(c, NULL);
+}
+
+unsigned char arch_keyavail(void)
+{
+    uart1_ch_avail = 0;
+    while (uart1_ch_avail);
+    return 1;
+}
+
+char arch_getkey(void)
+{
+    return uart1_ch;       
+}
 // redefine IRQ handler functions
 void USART1_handler(void)
 {
@@ -20,7 +43,8 @@ void USART1_handler(void)
         // FIXME
         USART_SendData(USART1, c);
         while(USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
-        
+        uart1_ch_avail = 1;
+        uart1_ch = c;
         if (NULL != uart1_input_handler) {
             uart1_input_handler(c);
         }

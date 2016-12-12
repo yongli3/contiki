@@ -59,7 +59,7 @@ static struct ctk_button aboutclose =
 
 PROCESS(about_process, "About Contiki");
 
-AUTOSTART_PROCESSES(&about_process);
+//AUTOSTART_PROCESSES(&about_process);
 
 /*-----------------------------------------------------------------------------------*/
 static void

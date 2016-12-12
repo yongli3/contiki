@@ -239,13 +239,13 @@ static void cc2520_arch_init(void)
     SPI_Cmd(SPI1, ENABLE);
 
     val = cc2520_read_reg(CC2520_CHIPID);
-    printf("\r\nID=0x%x\r\n", val);
+    printf("\r\nCC2520 ID=0x%x\r\n", val);
 
     val = cc2520_read_reg(CC2520_CHIPID);
-    printf("\r\nID=0x%x\r\n", val);    
+    printf("\r\nCC2520 ID=0x%x\r\n", val);    
 
     val = cc2520_read_reg(CC2520_VERSION);
-    printf("\r\nversion=0x%x\r\n", val);    
+    printf("\r\CC2520 nversion=0x%x\r\n", val);    
     
 
 #if 0
@@ -470,7 +470,7 @@ static uint8_t locked, lock_on, lock_off;
 static void
 on(void)
 {
-    PRINTF("off\n");       
+    PRINTF("on...\n");       
   CC2520_ENABLE_FIFOP_INT();
   strobe(CC2520_INS_SRXON);
 
@@ -482,7 +482,7 @@ on(void)
 static void
 off(void)
 {
-  PRINTF("off\n");
+  PRINTF("off...\n");
   receive_on = 0;
 
   /* Wait for transmission to end before turning radio off. */
@@ -623,10 +623,10 @@ cc2520_init(void)
   setreg(CC2520_FIFOPCTRL,   FIFOP_THR(0x7F));
 
   CC2520_GET_RANDOM(r); 
-  printf("%d-%d-%d-%d\n", clock_time(), RTIMER_NOW(), cc2520_rssi(), r);
+  printf("%s %d-%d-%d-%d\n", __func__, clock_time(), RTIMER_NOW(), cc2520_rssi(), r);
 
   CC2520_GET_RANDOM(r);  
-  printf("%d-%d-%d-%d\n", clock_time(), RTIMER_NOW(), cc2520_rssi(), r);
+  printf("%s %d-%d-%d-%d\n", __func__, clock_time(), RTIMER_NOW(), cc2520_rssi(), r);
 
     sys_seed = r;
     random_init(sys_seed);  
