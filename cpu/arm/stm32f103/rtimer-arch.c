@@ -34,7 +34,8 @@ static void TIM3_init(void)
 	TIM_Cmd(TIM3, DISABLE);
 }
 
-void clock_delay_usec(uint16_t t) 
+// delay us 5us -> 5.2us;1us -> 2us
+void clock_delay_usec(uint16_t t)
 {
     TIM3->CNT = 0;
     TIM_Cmd(TIM3, ENABLE);

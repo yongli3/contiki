@@ -30,7 +30,7 @@ SysTick_handler(void)
     }
 }
 
-// delay ms
+// delay ms 1ms -> 1ms
 void mdelay(uint32_t ms) {
   uint32_t curTicks = current_clock;
 
@@ -45,11 +45,13 @@ void clock_init()
     }
 }
 
+// system uptime ms 
 clock_time_t clock_time(void) 
 {
     return current_clock;
 }
 
+// system uptime seconds
 unsigned long clock_seconds(void) 
 {
     return current_seconds;

@@ -791,7 +791,7 @@ enc28j60_read(uint8_t *buffer, uint16_t bufsize)
     PRINTF("enc28j60: rx err: flushed %d\n", len);
     return 0;
   }
-  PRINTF("enc28j60: rx: %d: %02x:%02x:%02x:%02x:%02x:%02x\n", len,
+  PRINTF("enc28j60: rx=%d: %02x:%02x:%02x:%02x:%02x:%02x\n", len,
          0xff & buffer[0], 0xff & buffer[1], 0xff & buffer[2],
          0xff & buffer[3], 0xff & buffer[4], 0xff & buffer[5]);
 
@@ -811,8 +811,8 @@ PROCESS_THREAD(enc_watchdog_process, ev, data)
     etimer_set(&et, RESET_PERIOD);
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
 
-    PRINTF("enc28j60: test received_packet %d > sent_packets %d\n", received_packets, sent_packets);
-    if(received_packets <= sent_packets) {
+    PRINTF("enc28j60: test received_packet=%d, sent_packets=%d\n", received_packets, sent_packets);
+    if ((received_packets > 0) && (received_packets <= sent_packets)) {
       PRINTF("enc28j60: resetting chip\n");
       reset();
     }

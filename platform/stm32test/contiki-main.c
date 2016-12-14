@@ -53,12 +53,13 @@ int main()
     // test udelay
     while (1) {
         for (i = 0; i < 1; i++) {  
-            clock_delay_usec(7);
+            //clock_delay_usec(1); // 5us -> 5.2us ;1us -> 2us
+            mdelay(500);
         }
 
-        //printf("CLK %d\n", clock_seconds());
+        printf("CLK %d-%d\n", clock_seconds(), clock_time());
         
-        if (GPIO_ReadInputDataBit(GPIOD, GPIO_Pin_2))
+        if (GPIO_ReadInputDataBit(GPIOD, GPIO_Pin_2)) // LED1
             GPIO_ResetBits(GPIOD, GPIO_Pin_2);
         else
             GPIO_SetBits(GPIOD, GPIO_Pin_2);
