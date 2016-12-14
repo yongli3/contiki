@@ -600,7 +600,7 @@ tcpip_ipv6_output(void)
           /* Inform the other end that the destination is not reachable. If it's
            * not informed routes might get lost unexpectedly until there's a need
            * to send a new packet to the peer */
-          if(UIP_FALLBACK_INTERFACE.output() < 0) {
+          if(UIP_FALLBACK_INTERFACE.output() < 0) { // ip64_uip_fallback_interface
             PRINTF("FALLBACK: output error. Reporting DST UNREACH\n");
             uip_icmp6_error_output(ICMP6_DST_UNREACH, ICMP6_DST_UNREACH_ADDR, 0);
             uip_flags = 0;

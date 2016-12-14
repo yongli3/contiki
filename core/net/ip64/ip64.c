@@ -69,7 +69,7 @@
 #include <string.h> /* for memcpy() */
 #include <stdio.h> /* for printf() */
 
-#define DEBUG 0
+#define DEBUG 1
 
 #if DEBUG
 #undef PRINTF
@@ -894,14 +894,14 @@ ip64_hostaddr_is_configured(void)
 static void
 interface_init(void)
 {
-  IP64_UIP_FALLBACK_INTERFACE.init();
+  IP64_UIP_FALLBACK_INTERFACE.init(); // ip64_eth_interface
 }
 /*---------------------------------------------------------------------------*/
 static int
 interface_output(void)
 {
   PRINTF("ip64: interface_output len %d\n", uip_len);
-  IP64_UIP_FALLBACK_INTERFACE.output();
+  IP64_UIP_FALLBACK_INTERFACE.output();  // ip64_eth_interface
 
   return 0;
 }

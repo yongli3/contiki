@@ -39,4 +39,8 @@
 #define IP64_CONF_DHCP                   1
 #define IP64_CONF_ETH_DRIVER             enc28j60_ip64_driver
 
+#undef UIP_FALLBACK_INTERFACE
+#define UIP_FALLBACK_INTERFACE ip64_uip_fallback_interface
+
+
 #endif /* IP64_CONF_H */

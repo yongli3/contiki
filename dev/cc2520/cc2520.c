@@ -144,7 +144,7 @@ static void cc2520_irq_init(void)
   	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;								//使能外部中断通道
   	NVIC_Init(&NVIC_InitStructure);  	  //根据NVIC_InitStruct中指定的参数初始化外设NVIC寄存器
     
-    // PC1 EXT1
+    // PC1 EXT1 <-> FIFOP = GPIO2
     GPIO_EXTILineConfig(GPIO_PortSourceGPIOC,GPIO_PinSource1);
   	EXTI_InitStructure.EXTI_Line=EXTI_Line1;
   	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;	
@@ -167,17 +167,17 @@ static void cc2520_arch_init(void)
 	
  	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA|RCC_APB2Periph_GPIOC|RCC_APB2Periph_SPI1, ENABLE);	
 
-    // PA4 = SPI_NSS output
+    // PA4 <-> SPI_NSS output
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP ;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
     GPIO_SetBits(GPIOA,GPIO_Pin_4);
 
-    // FIFO = input pull down
-    // FIFOP = input pull down
-    // CCA = input pull down
-    // SFD = input pull down
+    // PC0 <-> FIFO = GPIO1 = input pull down
+    // PC1 <-> FIFOP = GPIO2 = input pull down
+    // PC2 <-> CCA = GPIO3 = input pull down
+    // PC3 <-> SFD = GPIO4 = input pull down
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD ;   //input
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
@@ -198,14 +198,14 @@ static void cc2520_arch_init(void)
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOC, &GPIO_InitStructure);
 
-    // PC4 = RESET output
+    // PC4 <-> RESET output
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP ;   //pull up output
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOC, &GPIO_InitStructure);
 	GPIO_ResetBits(GPIOC,GPIO_Pin_4);
 
-    // PA1 = VREG_EN output
+    // PA1(IRQ) <-> VREG_EN output
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP  ;   // pull up output
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
@@ -216,7 +216,7 @@ static void cc2520_arch_init(void)
     GPIO_SetBits(GPIOC,GPIO_Pin_4);
     mdelay(200);
 
-    //PA4/5/6/7 = SPI1 master 
+    //PA4<->NSS/PA5<->SCK/PA6<->MISO/PA7<->MOSI = SPI1 master 
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5 | GPIO_Pin_6 | GPIO_Pin_7;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;  //复用推挽输出
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
@@ -246,7 +246,6 @@ static void cc2520_arch_init(void)
 
     val = cc2520_read_reg(CC2520_VERSION);
     printf("\r\CC2520 nversion=0x%x\r\n", val);    
-    
 
 #if 0
   /* all input by default, set these as output */

@@ -27,6 +27,8 @@
  * SUCH DAMAGE.
  */
 
+not used 
+
 #include "contiki.h"
 #include "contiki-net.h"
 

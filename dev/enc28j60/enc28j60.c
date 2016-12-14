@@ -132,6 +132,116 @@ static uint8_t enc_mac_addr[6];
 static int received_packets = 0;
 static int sent_packets = 0;
 
+void enc28j60_arch_spi_init(void)
+{
+    u8 reg, val;
+
+	GPIO_InitTypeDef GPIO_InitStructure;
+	SPI_InitTypeDef  SPI_InitStructure; 
+	
+ 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA|RCC_APB2Periph_GPIOC|RCC_APB2Periph_SPI1, ENABLE);	
+
+    // PA4 = SPI_NSS output
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP ;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOA, &GPIO_InitStructure);
+    GPIO_SetBits(GPIOA, GPIO_Pin_4);
+
+    // PC4 = RESET output
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP ;   //pull up output
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOC, &GPIO_InitStructure);
+	GPIO_ResetBits(GPIOC, GPIO_Pin_4);
+
+    // PA1 = VREG_EN output
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP  ;   // pull up output
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOA, &GPIO_InitStructure);
+	GPIO_SetBits(GPIOA, GPIO_Pin_1);
+
+    mdelay(200);
+    GPIO_SetBits(GPIOC, GPIO_Pin_4);
+    mdelay(200);
+
+    //PA4=NSS/PA5=SCK/PA6=MISO/PA7=MOSI = SPI1 master
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;  //复用推挽输出
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_10MHz;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+    
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5 | GPIO_Pin_7;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;  //复用推挽输出
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_10MHz;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+    
+    GPIO_SetBits(GPIOA, GPIO_Pin_4|GPIO_Pin_5|GPIO_Pin_6|GPIO_Pin_7);	
+
+    SPI_InitStructure.SPI_Direction = SPI_Direction_2Lines_FullDuplex;  //设置SPI单向或者双向的数据模式:SPI设置为双线双向全双工
+	SPI_InitStructure.SPI_Mode = SPI_Mode_Master;		//设置SPI工作模式:设置为主SPI
+	SPI_InitStructure.SPI_DataSize = SPI_DataSize_8b;		//设置SPI的数据大小:SPI发送接收8位帧结构
+	SPI_InitStructure.SPI_CPOL = SPI_CPOL_Low;		//选择了串行时钟的稳态:时钟悬空低电平
+	SPI_InitStructure.SPI_CPHA = SPI_CPHA_1Edge;	//数据捕获于第一个时钟沿
+	SPI_InitStructure.SPI_NSS = SPI_NSS_Soft;		//NSS信号由硬件（NSS管脚）还是软件（使用SSI位）管理:内部NSS信号有SSI位控制
+	SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_8;		//定义波特率预分频的值:波特率预分频值为256
+	SPI_InitStructure.SPI_FirstBit = SPI_FirstBit_MSB;	//指定数据传输从MSB位还是LSB位开始:数据传输从MSB位开始
+	SPI_InitStructure.SPI_CRCPolynomial = 7;	//CRC值计算的多项式
+
+    SPI_Init(SPI1, &SPI_InitStructure);
+    // use hardware NSS
+    //SPI_SSOutputCmd(SPI1, ENABLE);
+
+    SPI_Cmd(SPI1, ENABLE);
+
+#if 0
+    val = cc2520_read_reg(CC2520_CHIPID);
+    printf("\r\nCC2520 ID=0x%x\r\n", val);
+
+    val = cc2520_read_reg(CC2520_CHIPID);
+    printf("\r\nCC2520 ID=0x%x\r\n", val);    
+
+    val = cc2520_read_reg(CC2520_VERSION);
+    printf("\r\CC2520 nversion=0x%x\r\n", val);    
+
+    CC2520_SPI_DISABLE();                /* Unselect radio. */
+    cc2520_irq_init();
+#endif    
+}
+
+static u8 SPI1_ReadWriteByte(u8 TxData)
+{		
+    // Loop while DR register in not emplty
+	while (SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_TXE) == RESET); // TXE=1 = TX empty
+    
+	SPI_I2S_SendData(SPI1, TxData);
+
+    // Wait to receive a byte
+	while (SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);// RXNE=1 RX full
+	  						    
+	return SPI_I2S_ReceiveData(SPI1);					    
+}
+
+static uint8_t enc28j60_arch_spi_write(u8 TxData)
+{
+    SPI1_ReadWriteByte(TxData);
+}
+
+static uint8_t enc28j60_arch_spi_read(void)
+{
+    return SPI1_ReadWriteByte(0xAA);
+}
+void enc28j60_arch_spi_select(void)
+{
+    GPIO_ResetBits(GPIOA,GPIO_Pin_4);
+    //mdelay(1);
+}
+void enc28j60_arch_spi_deselect(void)
+{
+    GPIO_SetBits(GPIOA,GPIO_Pin_4);
+}
+
 /*---------------------------------------------------------------------------*/
 static uint8_t
 is_mac_mii_reg(uint8_t reg)
@@ -254,6 +364,7 @@ softreset(void)
   /* The System Command (soft reset) is 1 1 1 1 1 1 1 1 */
   enc28j60_arch_spi_write(0xff);
   enc28j60_arch_spi_deselect();
+  clock_delay_usec(2000);
   bank = ERXTX_BANK;
 }
 /*---------------------------------------------------------------------------*/
@@ -278,6 +389,7 @@ readrev(void)
 static void
 reset(void)
 {
+  int i = 0;
   PRINTF("enc28j60: resetting chip\n");
 
   enc28j60_arch_spi_init();
@@ -340,13 +452,34 @@ reset(void)
     see Section 2.2 鈥淥scillator Start-up Timer.
   */
 
-  softreset();
+    softreset();
 
-  /* Workaround for erratum #2. */
-  clock_delay_usec(1000);
+    /* Wait for OST */
+    while((readreg(ESTAT) & ESTAT_CLKRDY) == 0);
 
-  /* Wait for OST */
-  while((readreg(ESTAT) & ESTAT_CLKRDY) == 0);
+    //PRINTF("ID=%d\n", readreg(EREVID));
+
+    setregbank(ERXTX_BANK);
+    for (i = 0; i < 0x20; i++) {
+        PRINTF("dump reg%d-%x 0x%x\n", bank, i, readreg(i));
+    }
+
+    setregbank(EPKTCNT_BANK);
+    for (i = 0; i < 0x20; i++) {
+        PRINTF("dump reg%d-%x 0x%x\n", bank, i, readreg(i));
+    }   
+  
+    setregbank(MACONX_BANK);
+    for (i = 0; i < 0x20; i++) {
+        PRINTF("dump reg%d-%x 0x%x\n", bank, i, readreg(i));
+    }        
+
+    setregbank(MAADRX_BANK);
+    for (i = 0; i < 0x20; i++) {
+        PRINTF("dump reg%d-%x 0x%x\n", bank, i, readreg(i));
+    }
+
+    PRINTF("rev=%d\n", readrev());  
 
   setregbank(ERXTX_BANK);
   /* Set up receive buffer */

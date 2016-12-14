@@ -21,9 +21,6 @@
 
 #define ENERGEST_TOTAL_IS_RTIMER_T
 
-// the low-level radio driver
-#define NETSTACK_CONF_RADIO   cc2520_driver
-
 /*
  * SPI Driver
  */ 

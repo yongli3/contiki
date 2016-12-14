@@ -167,7 +167,9 @@ for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
     mac_shortaddr = (mac_longaddr[0] << 8) + mac_longaddr[1]; 
 
     // set the random seed for MAC_addr[7]
-    NETSTACK_RADIO.init();
+
+    //NETSTACK_RADIO.init(); // cc2520_driver.init
+
     for (i = 0; i < 8; i++)
         linkaddr.u8[i] = mac_longaddr[i];
     
@@ -184,10 +186,12 @@ for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
         //cc2520_set_pan_addr(IEEE802154_PANID, shortaddr, longaddr);
       }
 
-    NETSTACK_RDC.init();
-    NETSTACK_LLSEC.init();
-    NETSTACK_MAC.init();
-    NETSTACK_NETWORK.init();
+    NETSTACK_RDC.init();    // nullrdc_driver
+    NETSTACK_LLSEC.init();  // nullsec_driver
+    NETSTACK_MAC.init();    // nullmac_driver
+    NETSTACK_NETWORK.init(); // sicslowpan_driver
+
+    ip64_init();
     
     printf(CONTIKI_VERSION_STRING "\n\nTCP started.. RSSI=%d\n", cc2520_rssi());
 

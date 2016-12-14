@@ -41,7 +41,7 @@
 
 #define UIP_IP_BUF        ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 
-#define DEBUG DEBUG_NONE
+#define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 #define printf(...)
 /*---------------------------------------------------------------------------*/
@@ -107,7 +107,7 @@ output(void)
 				   &ip64_packet_buffer[sizeof(struct ip64_eth_hdr)]);
       if(ret > 0) {
 	len += ret;
-	IP64_ETH_DRIVER.output(ip64_packet_buffer, len);
+	IP64_ETH_DRIVER.output(ip64_packet_buffer, len); // enc28j60_ip64_driver
       }
     } else {
       printf("Create request\n");
