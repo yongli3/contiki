@@ -55,7 +55,7 @@
 
 #include <string.h>
 
-#define DEBUG 1
+#define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 
 #if UIP_LOGGING
@@ -121,8 +121,7 @@ uint8_t
 tcpip_output(const uip_lladdr_t *a)
 {
   int ret;
-
-  printf("+%s outputfunc=%x\n", __func__, outputfunc);
+  PRINTF("+%s outputfunc=%x\n", __func__, outputfunc);
   
   if(outputfunc != NULL) {
     ret = outputfunc(a);
@@ -194,7 +193,7 @@ check_for_tcp_syn(void)
 static void
 packet_input(void)
 {
-    printf("+%s len=%d\n", __func__, uip_len);
+    PRINTF("+%s len=%d\n", __func__, uip_len);
 
   if(uip_len > 0) {
 
@@ -312,7 +311,7 @@ udp_new(const uip_ipaddr_t *ripaddr, uint16_t port, void *appstate)
 {
   struct uip_udp_conn *c;
   uip_udp_appstate_t *s;
-printf("+%s port=%X\n", __func__, port);
+PRINTF("+%s port=%X\n", __func__, port);
   c = uip_udp_new(ripaddr, port);
   if(c == NULL) {
     return NULL;
@@ -321,7 +320,7 @@ printf("+%s port=%X\n", __func__, port);
   s = &c->appstate;
   s->p = PROCESS_CURRENT();
   s->state = appstate;
-printf("%s p=%x appstate=%x lport=%X rport=%X\n", __func__, s->p, s->state, c->lport, c->rport);
+PRINTF("%s p=%x appstate=%x lport=%X rport=%X\n", __func__, s->p, s->state, c->lport, c->rport);
   return c;
 }
 /*---------------------------------------------------------------------------*/
@@ -358,7 +357,7 @@ icmp6_new(void *appstate) {
 void
 tcpip_icmp6_call(uint8_t type)
 {
-    printf("+%s p=%x type=0x%x\n", __func__, uip_icmp6_conns.appstate.p, type);
+    PRINTF("+%s p=%x type=0x%x\n", __func__, uip_icmp6_conns.appstate.p, type);
   if(uip_icmp6_conns.appstate.p != PROCESS_NONE) {
     /* XXX: This is a hack that needs to be updated. Passing a pointer (&type)
        like this only works with process_post_synch. */
@@ -378,7 +377,7 @@ eventhandler(process_event_t ev, process_data_t data)
   struct process *p;
 
   switch(ev) {
-  printf("TCPIP %s %X\n", __func__, ev);  
+  PRINTF("TCPIP %s %X\n", __func__, ev);  
   case PROCESS_EVENT_EXITED:
     /* This is the event we get if a process has exited. We go through
          the TCP/IP tables to see if this process had any open
@@ -491,7 +490,7 @@ eventhandler(process_event_t ev, process_data_t data)
 
 #if UIP_TCP
   case TCP_POLL:    
-    printf("TCPIP %s TCP_POLL data=%X\n", __func__, data);    
+    PRINTF("TCPIP %s TCP_POLL data=%X\n", __func__, data);    
     if(data != NULL) {
       uip_poll_conn(data);
 #if NETSTACK_CONF_WITH_IPV6
@@ -509,7 +508,7 @@ eventhandler(process_event_t ev, process_data_t data)
 #endif /* UIP_TCP */
 #if UIP_UDP
   case UDP_POLL:
-    printf("TCPIP %s UDP_POLL data=%X\n", __func__, data);
+    PRINTF("TCPIP %s UDP_POLL data=%X\n", __func__, data);
     if(data != NULL) {
       uip_udp_periodic_conn(data);
 #if NETSTACK_CONF_WITH_IPV6
@@ -523,7 +522,7 @@ eventhandler(process_event_t ev, process_data_t data)
     break;
 #endif /* UIP_UDP */
   case PACKET_INPUT:
-    printf("TCPIP %s PACKET_INPUT data=%X\n", __func__, data);    
+    PRINTF("TCPIP %s PACKET_INPUT data=%X\n", __func__, data);    
     packet_input();
     break;
   };
@@ -662,9 +661,9 @@ tcpip_ipv6_output(void)
         static uint8_t annotate_has_last = 0;
 
         if(annotate_has_last) {
-          printf("#L %u 0; red\n", annotate_last);
+          PRINTF("#L %u 0; red\n", annotate_last);
         }
-        printf("#L %u 1; red\n", nexthop->u8[sizeof(uip_ipaddr_t) - 1]);
+        PRINTF("#L %u 1; red\n", nexthop->u8[sizeof(uip_ipaddr_t) - 1]);
         annotate_last = nexthop->u8[sizeof(uip_ipaddr_t) - 1];
         annotate_has_last = 1;
       }
@@ -756,7 +755,7 @@ tcpip_ipv6_output(void)
     }
   }
   /* Multicast IP destination address. */
-  printf("%s multicast \n", __func__);
+  PRINTF("%s multicast \n", __func__);
   tcpip_output(NULL);
   uip_clear_buf();
 }
@@ -766,7 +765,7 @@ tcpip_ipv6_output(void)
 void
 tcpip_poll_udp(struct uip_udp_conn *conn)
 {
-    printf("+%s conn=%X\n", __func__, conn);
+    PRINTF("+%s conn=%X\n", __func__, conn);
   process_post(&tcpip_process, UDP_POLL, conn);
 }
 #endif /* UIP_UDP */
@@ -793,7 +792,7 @@ tcpip_uipcall(void)
   ts = &uip_conn->appstate;
 #endif /* UIP_UDP */
 
-printf("+%s uip_conn=%X udp_conn=%X p=%x state=%x\n", 
+PRINTF("+%s uip_conn=%X udp_conn=%X p=%x state=%x\n", 
     __func__, uip_conn, uip_udp_conn, ts->p, ts->state);
 
 #if UIP_TCP
@@ -843,7 +842,7 @@ PROCESS_THREAD(tcpip_process, ev, data)
 
   tcpip_event = process_alloc_event();
 
-printf("+%s tcpip_event=%x\n", __func__, tcpip_event);
+PRINTF("+%s tcpip_event=%x\n", __func__, tcpip_event);
 
 #if UIP_CONF_ICMP6
   tcpip_icmp6_event = process_alloc_event();

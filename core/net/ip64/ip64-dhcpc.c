@@ -40,6 +40,9 @@
 
 #include "ip64-addr.h"
 
+#define DEBUG DEBUG_NONE
+#include "net/ip/uip-debug.h"
+
 #define STATE_INITIAL         0
 #define STATE_SENDING         1
 #define STATE_OFFER_RECEIVED  2
@@ -176,7 +179,7 @@ send_discover(void)
   uint8_t *end;
   struct dhcp_msg *m = (struct dhcp_msg *)uip_appdata;
 
-   printf("+%s\n", __func__);
+   PRINTF("+%s\n", __func__);
   create_msg(m);
 
   end = add_msg_type(&m->options[4], DHCPDISCOVER);
@@ -191,7 +194,7 @@ send_request(void)
 {
   uint8_t *end;
   struct dhcp_msg *m = (struct dhcp_msg *)uip_appdata;
-  printf("+%s\n", __func__);
+  PRINTF("+%s\n", __func__);
 
   create_msg(m);
   
@@ -282,11 +285,11 @@ PT_THREAD(handle_dhcp(process_event_t ev, void *data))
 {
   clock_time_t ticks;
 
-  printf("+%s ev=%X\n", __func__, ev);
+  PRINTF("+%s ev=%X\n", __func__, ev);
 
   PT_BEGIN(&s.pt);
 
-  printf("%s ev=%X\n", __func__, ev);
+  PRINTF("%s ev=%X\n", __func__, ev);
   
  init:
   xid++;
@@ -481,7 +484,7 @@ ip64_dhcpc_init(const void *mac_addr, int mac_len)
 void
 ip64_dhcpc_appcall(process_event_t ev, void *data)
 {
-    printf("+%s ev=%X data=%X tcpip_event=%X\n", __func__, ev, data, tcpip_event);
+    PRINTF("+%s ev=%X data=%X tcpip_event=%X\n", __func__, ev, data, tcpip_event);
 
   if(ev == tcpip_event || ev == PROCESS_EVENT_TIMER) {
     handle_dhcp(ev, data);
@@ -492,7 +495,7 @@ void
 ip64_dhcpc_request(void)
 {
   uip_ipaddr_t ipaddr;
-  printf("+%s\n", __func__);
+  PRINTF("+%s\n", __func__);
   if(s.state == STATE_INITIAL) {
     uip_ipaddr(&ipaddr, 0,0,0,0);
     uip_sethostaddr(&ipaddr);

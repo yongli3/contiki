@@ -37,6 +37,9 @@
 #include "ip64-eth.h"
 #include "ip64-addr.h"
 
+#define DEBUG DEBUG_NONE
+#include "net/ip/uip-debug.h"
+
 #include <stdio.h>
 
 PROCESS(ip64_ipv4_dhcp_process, "IPv4 DHCP");
@@ -56,7 +59,7 @@ PROCESS_THREAD(ip64_ipv4_dhcp_process, ev, data)
 {
   PROCESS_BEGIN();
 
-  printf("+%s MAC: %X-%X-%X-%X-%X-%X\n", __func__, ip64_eth_addr.addr[0], ip64_eth_addr.addr[1],
+  PRINTF("+%s MAC: %X-%X-%X-%X-%X-%X\n", __func__, ip64_eth_addr.addr[0], ip64_eth_addr.addr[1],
     ip64_eth_addr.addr[2], ip64_eth_addr.addr[3], ip64_eth_addr.addr[4], ip64_eth_addr.addr[5]);
 
   ip64_dhcpc_init(&ip64_eth_addr, sizeof(ip64_eth_addr));

@@ -487,7 +487,7 @@ uip_ds6_route_rm(uip_ds6_route_t *route)
 
     if(neighbor_route == NULL) {
       PRINTF("uip_ds6_route_rm: neighbor_route was NULL for ");
-      uip_debug_ipaddr_print(&route->ipaddr);
+      PRINT6ADDR(&route->ipaddr);
       PRINTF("\n");
     }
     list_remove(route->neighbor_routes->route_list, neighbor_route);

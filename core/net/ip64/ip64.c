@@ -51,7 +51,6 @@
    address is given to the ip64 module through the
    ip64_set_ipv4_address() function.
 */
-#define DEBUG 1
 
 #include "ip64.h"
 #include "ip64-addr.h"
@@ -65,17 +64,11 @@
 #include "ip64-ipv4-dhcp.h"
 #include "contiki-net.h"
 
+#define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 
 #include <string.h> /* for memcpy() */
 #include <stdio.h> /* for printf() */
-
-#if DEBUG
-#undef PRINTF
-#define PRINTF(...) printf(__VA_ARGS__)
-#else /* DEBUG */
-#define PRINTF(...)
-#endif /* DEBUG */
 
 struct ipv6_hdr {
   uint8_t vtc;
@@ -262,7 +255,7 @@ ip64_set_ipv6_address(const uip_ip6addr_t *addr)
   ipv6_local_address_configured = 1;
 #if DEBUG
   PRINTF("ip64_set_ipv6_address: configuring address ");
-  uip_debug_ipaddr_print(addr);
+  PRINT6ADDR(addr);
   PRINTF("\n");
 #endif /* DEBUG */
 }
@@ -491,7 +484,7 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
 		    &v4hdr->destipaddr) == 0) {
 #if DEBUG
     PRINTF("ip64_6to4: Could not convert IPv6 destination address.\n");
-    uip_debug_ipaddr_print(&v6hdr->destipaddr);
+    PRINT6ADDR(&v6hdr->destipaddr);
     PRINTF("\n");
 #endif /* DEBUG */
     return 0;
@@ -664,23 +657,23 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
   v6hdr = (struct ipv6_hdr *)resultpacket;
   v4hdr = (struct ipv4_hdr *)ipv4packet;
 
-  printf("+%s ipv4len=%d result=%x ", __func__, ipv4packet_len, resultpacket);
+  PRINTF("+%s ipv4len=%d result=%x ", __func__, ipv4packet_len, resultpacket);
 
 // dump ipv4 packet
-  printf(" srcip=%d.%d.%d.%d destip=%d.%d.%d.%d\n", v4hdr->srcipaddr.u8[0], v4hdr->srcipaddr.u8[1],
+  PRINTF(" srcip=%d.%d.%d.%d destip=%d.%d.%d.%d\n", v4hdr->srcipaddr.u8[0], v4hdr->srcipaddr.u8[1],
     v4hdr->srcipaddr.u8[2], v4hdr->srcipaddr.u8[3], v4hdr->destipaddr.u8[0], v4hdr->destipaddr.u8[1],
     v4hdr->destipaddr.u8[2], v4hdr->destipaddr.u8[3]);
 
-  printf("vhl=%x tos=%x len=%x-%x ttl=%x proto=%x ipchksum=%02x ", 
+  PRINTF("vhl=%x tos=%x len=%x-%x ttl=%x proto=%x ipchksum=%02x ", 
     v4hdr->vhl, v4hdr->tos, v4hdr->len[0], v4hdr->len[1], v4hdr->ttl, v4hdr->proto, v4hdr->ipchksum);
 
   for (i = 0; i < ipv4packet_len; i++) {
     if (0 == (i % 16))
-            printf("\n");
+            PRINTF("\n");
         
-        printf("%02x ", ipv4packet[i]);
+        PRINTF("%02x ", ipv4packet[i]);
     }
-    printf("\n");
+    PRINTF("\n");
 
   if((v4hdr->len[0] << 8) + v4hdr->len[1] <= ipv4packet_len) {
     ipv4len = (v4hdr->len[0] << 8) + v4hdr->len[1];
@@ -690,7 +683,7 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
   }
 
   if(ipv4len <= IPV4_HDRLEN) {
-    printf("ipv4len too small!\n");
+    PRINTF("ipv4len too small!\n");
     return 0;
   }
 
@@ -910,19 +903,19 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
     //dump ipv6 packet
 
     PRINT6ADDR(&v6hdr->srcipaddr);
-    printf(" destipaddr=");
+    PRINTF(" destipaddr=");
     PRINT6ADDR(&v6hdr->destipaddr);
     
-    printf("\nvtc=%x tcflow=%x flow=%x len=%x-%x nxthdr=%x hoplim=%x", 
+    PRINTF("\nvtc=%x tcflow=%x flow=%x len=%x-%x nxthdr=%x hoplim=%x", 
       v6hdr->vtc, v6hdr->tcflow, v6hdr->flow, v6hdr->len[0], v6hdr->len[1], v6hdr->nxthdr, v6hdr->hoplim);
     
     for (i = 0; i < ipv6len; i++) {
       if (0 == (i % 16))
-              printf("\n");
+              PRINTF("\n");
           
-          printf("%02x ", resultpacket[i]);
+          PRINTF("%02x ", resultpacket[i]);
       }
-      printf("\n");
+      PRINTF("\n");
 
   return ipv6len;
 }
@@ -943,11 +936,13 @@ static int
 interface_output(void)
 {
   PRINTF("ip64_uip_fallback_interface output: %s len %d\n", __func__, uip_len); 
-  // dump packet should be same as tcpip_output
-  IP64_UIP_FALLBACK_INTERFACE.output();  // ip64_eth_interface
+
+  // convert ipv6 to ipv4 packet, then send to hardware
+  IP64_UIP_FALLBACK_INTERFACE.output();  // ip64_eth_interface 
 
   return 0;
 }
+
 /*---------------------------------------------------------------------------*/
 const struct uip_fallback_interface ip64_uip_fallback_interface = {
   interface_init, interface_output

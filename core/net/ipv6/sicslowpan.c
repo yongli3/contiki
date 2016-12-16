@@ -73,7 +73,7 @@
 
 #include <stdio.h>
 
-#define DEBUG DEBUG_PRINT
+#define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 #if DEBUG
 /* PRINTFI and PRINTFO are defined for input and output to debug one without changing the timing of the other */
@@ -1243,7 +1243,7 @@ packet_sent(void *ptr, int status, int transmissions)
 static void
 send_packet(linkaddr_t *dest)
 {
-printf("+sicslowpan %s\n", __func__);
+    PRINTF("+sicslowpan %s\n", __func__);
   /* Set the link layer destination address for the packet as a
    * packetbuf attribute. The MAC layer can access the destination
    * address with the function packetbuf_addr(PACKETBUF_ADDR_RECEIVER).
@@ -1283,19 +1283,19 @@ output(const uip_lladdr_t *localdest)
   /* The MAC address of the destination of the packet */
   linkaddr_t dest;
 
-    printf("+sicslowpan %s %x uip_len=%d %p\n", __func__, localdest, uip_len, localdest);
+    PRINTF("+sicslowpan %s %x uip_len=%d %p\n", __func__, localdest, uip_len, localdest);
     if (localdest != NULL)
-    printf(" MAC:%x-%x-%x-%x-%x-%x\n", localdest->addr[0],
+    PRINTF(" MAC:%x-%x-%x-%x-%x-%x\n", localdest->addr[0],
         localdest->addr[1], localdest->addr[2], localdest->addr[3], localdest->addr[4],
         localdest->addr[5]);
 
     for (i = 0; i < uip_len; i++) {
         if (0 == (i % 16))
-            printf("\n");
+            PRINTF("\n");
         
-        printf("%02x ", uip_buf[i]);
+        PRINTF("%02x ", uip_buf[i]);
     }
-    printf("\n");
+    PRINTF("\n");
 
 #ifdef UIP_FALLBACK_INTERFACE
     extern struct uip_fallback_interface UIP_FALLBACK_INTERFACE;
@@ -1543,7 +1543,7 @@ input(void)
   uint8_t first_fragment = 0, last_fragment = 0;
 #endif /*SICSLOWPAN_CONF_FRAG*/
 
-  printf("sicslowpan input\n");
+  PRINTF("sicslowpan input\n");
 
   /* Update link statistics */
   link_stats_input_callback(packetbuf_addr(PACKETBUF_ADDR_SENDER));

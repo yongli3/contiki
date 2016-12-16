@@ -91,7 +91,7 @@
 /* For Debug, logging, statistics                                            */
 /*---------------------------------------------------------------------------*/
 
-#define DEBUG DEBUG_PRINT
+#define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 
 #if UIP_LOGGING == 1
@@ -951,6 +951,9 @@ uip_process(uint8_t flag)
   uint8_t opt;
   register struct uip_conn *uip_connr = uip_conn;
 #endif /* UIP_TCP */
+
+PRINTF("+%s flag=%x\n", __func__, flag);
+
 #if UIP_UDP
   if(flag == UIP_UDP_SEND_CONN) {
     goto udp_send;
@@ -1090,7 +1093,7 @@ uip_process(uint8_t flag)
 #endif /* UIP_TCP */
   }
 #if UIP_UDP
-    printf("%s UIP_UDP flag=%x lport=0x%X\n", __func__, flag, uip_udp_conn->lport);
+    PRINTF("%s UIP_UDP flag=%x lport=0x%X\n", __func__, flag, uip_udp_conn->lport);
   if(flag == UIP_UDP_TIMER) {
     if(uip_udp_conn->lport != 0) {
       uip_conn = NULL;
@@ -1430,11 +1433,11 @@ uip_process(uint8_t flag)
     uip_len, UIP_ICMP_BUF->type, UIP_ICMP_BUF->icmpchksum); // ICMP6_ECHO_REQUEST
   for (i = 0; i < uip_len; i++) {
       if (0 == (i % 16))
-          printf("\n");
+          PRINTF("\n");
       
-      printf("%02x ", uip_buf[i]);
+      PRINTF("%02x ", uip_buf[i]);
   }
-  printf("\n");
+  PRINTF("\n");
 
 #if UIP_CONF_IPV6_CHECKS
   /* Compute and check the ICMP header checksum */
@@ -1527,13 +1530,13 @@ uip_process(uint8_t flag)
        connection is bound to a remote port. Finally, if the
        connection is bound to a remote IP address, the source IP
        address of the packet is checked. */
-       printf("* lport=0x%X rport=0x%X\n", uip_udp_conn->lport, uip_udp_conn->rport);
-        printf("ripaddr: ");
-        uip_debug_ipaddr_print(&(uip_udp_conn->ripaddr));
-        printf("\n");
-        printf("srcipaddr: ");
-        uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
-        printf("\n");
+       PRINTF("* lport=0x%X rport=0x%X\n", uip_udp_conn->lport, uip_udp_conn->rport);
+        PRINTF("ripaddr: ");
+        PRINT6ADDR(&(uip_udp_conn->ripaddr));
+        PRINTF("\n");
+        PRINTF("srcipaddr: ");
+        PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
+        PRINTF("\n");
     if(uip_udp_conn->lport != 0 &&
        UIP_UDP_BUF->destport == uip_udp_conn->lport &&
        (uip_udp_conn->rport == 0 ||
@@ -2355,15 +2358,15 @@ uip_send(const void *data, int len)
   int copylen;
   int i;
   u8 *buf = data;
-  printf("+%s len=%d ", __func__, len);
+  PRINTF("+%s len=%d ", __func__, len);
 
     for (i = 0; i < len; i++) {
       if (0 == (i % 16))
-          printf("\n");
+          PRINTF("\n");
     
-      printf("%02x ", buf[i]);
+      PRINTF("%02x ", buf[i]);
     }
-    printf("\n");
+    PRINTF("\n");
     
   if(uip_sappdata != NULL) {
     copylen = MIN(len, UIP_BUFSIZE - UIP_LLH_LEN - UIP_TCPIP_HLEN -
@@ -2372,7 +2375,7 @@ uip_send(const void *data, int len)
   } else {
     copylen = MIN(len, UIP_BUFSIZE - UIP_LLH_LEN - UIP_TCPIP_HLEN);
   }
-  printf("%s copylen=%d\n", __func__, copylen);
+  PRINTF("%s copylen=%d\n", __func__, copylen);
   if(copylen > 0) {
     uip_slen = copylen;
     if(data != uip_sappdata) {

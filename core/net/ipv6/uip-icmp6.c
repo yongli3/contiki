@@ -47,7 +47,7 @@
 #include "net/ipv6/uip-icmp6.h"
 #include "contiki-default-conf.h"
 
-#define DEBUG DEBUG_PRINT
+#define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 
 #if DEBUG
