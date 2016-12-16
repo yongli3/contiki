@@ -69,10 +69,11 @@
 #include "net/rime/rime.h"
 #include "net/ipv6/sicslowpan.h"
 #include "net/netstack.h"
+#include "ip64-conf.h"
 
 #include <stdio.h>
 
-#define DEBUG DEBUG_NONE
+#define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 #if DEBUG
 /* PRINTFI and PRINTFO are defined for input and output to debug one without changing the timing of the other */
@@ -1242,6 +1243,7 @@ packet_sent(void *ptr, int status, int transmissions)
 static void
 send_packet(linkaddr_t *dest)
 {
+printf("+sicslowpan %s\n", __func__);
   /* Set the link layer destination address for the packet as a
    * packetbuf attribute. The MAC layer can access the destination
    * address with the function packetbuf_addr(PACKETBUF_ADDR_RECEIVER).
@@ -1276,9 +1278,33 @@ output(const uip_lladdr_t *localdest)
 {
   int framer_hdrlen;
   int max_payload;
+  int i;
 
   /* The MAC address of the destination of the packet */
   linkaddr_t dest;
+
+    printf("+sicslowpan %s %x uip_len=%d %p\n", __func__, localdest, uip_len, localdest);
+    if (localdest != NULL)
+    printf(" MAC:%x-%x-%x-%x-%x-%x\n", localdest->addr[0],
+        localdest->addr[1], localdest->addr[2], localdest->addr[3], localdest->addr[4],
+        localdest->addr[5]);
+
+    for (i = 0; i < uip_len; i++) {
+        if (0 == (i % 16))
+            printf("\n");
+        
+        printf("%02x ", uip_buf[i]);
+    }
+    printf("\n");
+
+#ifdef UIP_FALLBACK_INTERFACE
+    extern struct uip_fallback_interface UIP_FALLBACK_INTERFACE;
+    UIP_FALLBACK_INTERFACE.output(); // ip64_uip_fallback_interface
+    return 0;
+#endif    
+
+#define BUF ((struct uip_eth_hdr *)&uip_buf[0])
+#define IPBUF ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 
   /* init */
   uncomp_hdr_len = 0;
@@ -1516,6 +1542,8 @@ input(void)
   uint16_t frag_tag = 0;
   uint8_t first_fragment = 0, last_fragment = 0;
 #endif /*SICSLOWPAN_CONF_FRAG*/
+
+  printf("sicslowpan input\n");
 
   /* Update link statistics */
   link_stats_input_callback(packetbuf_addr(PACKETBUF_ADDR_SENDER));

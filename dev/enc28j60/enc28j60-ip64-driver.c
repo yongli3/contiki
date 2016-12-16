@@ -86,11 +86,19 @@ PROCESS_THREAD(enc28j60_ip64_driver_process, ev, data)
   PROCESS_BEGIN();
 
   while(1) {
-    etimer_set(&e, 1);
+    etimer_set(&e, 1); // block for 1ms
     PROCESS_WAIT_EVENT();
+#if 0
+    printf("ev=%x\n", ev);
+
+    if (GPIO_ReadInputDataBit(GPIOD, GPIO_Pin_2)) // LED1
+        GPIO_ResetBits(GPIOD, GPIO_Pin_2);
+    else
+        GPIO_SetBits(GPIOD, GPIO_Pin_2);
+#endif
     len = enc28j60_read(ip64_packet_buffer, ip64_packet_buffer_maxlen);
     if(len > 0) {
-      IP64_INPUT(ip64_packet_buffer, len);
+      IP64_INPUT(ip64_packet_buffer, len); // ip64_eth_interface_input
     }
   }
 

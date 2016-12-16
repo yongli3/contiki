@@ -43,7 +43,7 @@
 
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
-#define printf(...)
+//#define printf(...)
 /*---------------------------------------------------------------------------*/
 void
 ip64_eth_interface_input(uint8_t *packet, uint16_t len)
@@ -51,29 +51,30 @@ ip64_eth_interface_input(uint8_t *packet, uint16_t len)
   struct ip64_eth_hdr *ethhdr;
   ethhdr = (struct ip64_eth_hdr *)packet;
 
+// only receive ARP & IPV4 packet and covert to ipv6 packet
+PRINTF("+%s len=%d type=0x%x\n", __func__, len, ethhdr->type);
   if(ethhdr->type == UIP_HTONS(IP64_ETH_TYPE_ARP)) {
     len = ip64_arp_arp_input(packet, len);
 
     if(len > 0) {
-      IP64_ETH_DRIVER.output(packet, len);
+      IP64_ETH_DRIVER.output(packet, len); // enc28j60_ip64_driver
     }
   } else if(ethhdr->type == UIP_HTONS(IP64_ETH_TYPE_IP) &&
 	    len > sizeof(struct ip64_eth_hdr)) {
-    printf("-------------->\n");
     uip_len = ip64_4to6(&packet[sizeof(struct ip64_eth_hdr)],
 			len - sizeof(struct ip64_eth_hdr),
 			&uip_buf[UIP_LLH_LEN]);
     if(uip_len > 0) {
-      printf("ip64_interface_process: converted %d bytes\n", uip_len);
+      printf("%s: converted %d bytes ", __func__, uip_len);
 
-      printf("ip64-interface: input source ");
+      printf(" srcipaddr: ");
       PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
-      PRINTF(" destination ");
+      PRINTF(" destipaddr: ");
       PRINT6ADDR(&UIP_IP_BUF->destipaddr);
       PRINTF("\n");
 
       tcpip_input();
-      printf("Done\n");
+      printf("Done %d\n", len);
     }
   }
 }
@@ -88,8 +89,21 @@ static int
 output(void)
 {
   int len, ret;
+  int i;
 
-  printf("ip64-interface: output source ");
+  //uip_ipaddr_copy(&UIP_IP_BUF->destipaddr, &uip_udp_conn->ripaddr);
+
+  PRINTF("+ip64_eth_interface %s UIP_IP_BUF=%x uip_buf=%x uip_len=%d\n", __func__, UIP_IP_BUF, uip_buf, uip_len);
+
+  for (i = 0; i < uip_len; i++) {
+      if (0 == (i % 16))
+          printf("\n");
+      
+      printf("%02x ", uip_buf[i]);
+  }
+  printf("\n");
+
+  printf("ip64_eth_interface output source ");
   PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
   PRINTF(" destination ");
   PRINT6ADDR(&UIP_IP_BUF->destipaddr);
@@ -99,7 +113,7 @@ output(void)
   len = ip64_6to4(&uip_buf[UIP_LLH_LEN], uip_len,
 		  &ip64_packet_buffer[sizeof(struct ip64_eth_hdr)]);
 
-  printf("ip64-interface: output len %d\n", len);
+  printf("ip64_eth_interface output len %d\n", len);
   if(len > 0) {
     if(ip64_arp_check_cache(&ip64_packet_buffer[sizeof(struct ip64_eth_hdr)])) {
       printf("Create header\n");
@@ -113,7 +127,7 @@ output(void)
       printf("Create request\n");
       len = ip64_arp_create_arp_request(ip64_packet_buffer,
 					&ip64_packet_buffer[sizeof(struct ip64_eth_hdr)]);
-      return IP64_ETH_DRIVER.output(ip64_packet_buffer, len);
+      return IP64_ETH_DRIVER.output(ip64_packet_buffer, len); // enc28j60_ip64_driver
     }
   }
 

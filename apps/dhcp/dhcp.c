@@ -2,11 +2,9 @@
 #include "ctk/ctk.h"
 #include "net/ip/dhcpc.h"
 
-
-
 PROCESS(dhcp_process, "DHCP");
 
-AUTOSTART_PROCESSES(&dhcp_process);
+//AUTOSTART_PROCESSES(&dhcp_process);
 
 static struct ctk_window window;
 static struct ctk_button getbutton =

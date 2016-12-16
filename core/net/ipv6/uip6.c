@@ -381,10 +381,13 @@ upper_layer_chksum(uint8_t proto)
  */
   volatile uint16_t upper_layer_len;
   uint16_t sum;
-
+  // dump IP header 
+  PRINTF("IP header: vtc=%x tcflow=%x flow=%x proto=%x ttl=%x\n", UIP_IP_BUF->vtc, UIP_IP_BUF->tcflow, UIP_IP_BUF->flow, UIP_IP_BUF->proto,
+  UIP_IP_BUF->ttl);
+                                                              
   upper_layer_len = (((uint16_t)(UIP_IP_BUF->len[0]) << 8) + UIP_IP_BUF->len[1] - uip_ext_len);
 
-  PRINTF("Upper layer checksum len: %d from: %d\n", upper_layer_len,
+  PRINTF("+%s proto=0x%X len=%d from=%d\n", __func__, proto, upper_layer_len,
          UIP_IPH_LEN + UIP_LLH_LEN + uip_ext_len);
 
   /* First sum pseudoheader. */
@@ -397,6 +400,7 @@ upper_layer_chksum(uint8_t proto)
   sum = chksum(sum, &uip_buf[UIP_IPH_LEN + UIP_LLH_LEN + uip_ext_len],
                upper_layer_len);
 
+  PRINTF("sum=0x%X\n", sum);
   return (sum == 0) ? 0xffff : uip_htons(sum);
 }
 /*---------------------------------------------------------------------------*/
@@ -942,6 +946,7 @@ uip_process(uint8_t flag)
 {
 #if UIP_TCP
   int c;
+    int i;
   uint16_t tmp16;
   uint8_t opt;
   register struct uip_conn *uip_connr = uip_conn;
@@ -1085,6 +1090,7 @@ uip_process(uint8_t flag)
 #endif /* UIP_TCP */
   }
 #if UIP_UDP
+    printf("%s UIP_UDP flag=%x lport=0x%X\n", __func__, flag, uip_udp_conn->lport);
   if(flag == UIP_UDP_TIMER) {
     if(uip_udp_conn->lport != 0) {
       uip_conn = NULL;
@@ -1139,7 +1145,7 @@ uip_process(uint8_t flag)
     goto drop;
   }
 
-  PRINTF("IPv6 packet received from ");
+  PRINTF("%s IPv6 packet received from ", __func__);
   PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
   PRINTF(" to ");
   PRINT6ADDR(&UIP_IP_BUF->destipaddr);
@@ -1420,7 +1426,15 @@ uip_process(uint8_t flag)
 
   icmp6_input:
   /* This is IPv6 ICMPv6 processing code. */
-  PRINTF("icmp6_input: length %d type: %d \n", uip_len, UIP_ICMP_BUF->type);
+  PRINTF("icmp6_input: length %d type: 0x%x cksum: 0x%x ", 
+    uip_len, UIP_ICMP_BUF->type, UIP_ICMP_BUF->icmpchksum); // ICMP6_ECHO_REQUEST
+  for (i = 0; i < uip_len; i++) {
+      if (0 == (i % 16))
+          printf("\n");
+      
+      printf("%02x ", uip_buf[i]);
+  }
+  printf("\n");
 
 #if UIP_CONF_IPV6_CHECKS
   /* Compute and check the ICMP header checksum */
@@ -1475,7 +1489,7 @@ uip_process(uint8_t flag)
   remove_ext_hdr();
   UIP_IP_BUF->proto = UIP_PROTO_UDP;
 
-  PRINTF("Receiving UDP packet\n");
+  PRINTF("%s Receiving UDP packet srcport=0x%X destport=0x%X\n", __func__, UIP_UDP_BUF->srcport, UIP_UDP_BUF->destport);
 
   /* UDP processing is really just a hack. We don't do anything to the
      UDP/IP headers, but let the UDP application do all the hard
@@ -1513,6 +1527,13 @@ uip_process(uint8_t flag)
        connection is bound to a remote port. Finally, if the
        connection is bound to a remote IP address, the source IP
        address of the packet is checked. */
+       printf("* lport=0x%X rport=0x%X\n", uip_udp_conn->lport, uip_udp_conn->rport);
+        printf("ripaddr: ");
+        uip_debug_ipaddr_print(&(uip_udp_conn->ripaddr));
+        printf("\n");
+        printf("srcipaddr: ");
+        uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
+        printf("\n");
     if(uip_udp_conn->lport != 0 &&
        UIP_UDP_BUF->destport == uip_udp_conn->lport &&
        (uip_udp_conn->rport == 0 ||
@@ -1541,12 +1562,12 @@ uip_process(uint8_t flag)
   UIP_UDP_APPCALL();
 
   udp_send:
-  PRINTF("In udp_send\n");
+  PRINTF("In udp_send uip_slen=%d\n", uip_slen);
 
   if(uip_slen == 0) {
     goto drop;
   }
-  uip_len = uip_slen + UIP_IPUDPH_LEN;
+  uip_len = uip_slen + UIP_IPUDPH_LEN; // for ipv6 = 8+40
 
   /* For IPv6, the IP length field does not include the IPv6 IP header
      length. */
@@ -1562,10 +1583,14 @@ uip_process(uint8_t flag)
   UIP_UDP_BUF->srcport  = uip_udp_conn->lport;
   UIP_UDP_BUF->destport = uip_udp_conn->rport;
 
+  PRINTF("srcport=%x destport=%x UIP_IP_BUF=%x uip_buf=%x\n", 
+    uip_udp_conn->lport, uip_udp_conn->rport, UIP_IP_BUF, uip_buf);
+
+  // uip_ip_hdr
   uip_ipaddr_copy(&UIP_IP_BUF->destipaddr, &uip_udp_conn->ripaddr);
   uip_ds6_select_src(&UIP_IP_BUF->srcipaddr, &UIP_IP_BUF->destipaddr);
 
-  uip_appdata = &uip_buf[UIP_LLH_LEN + UIP_IPTCPH_LEN];
+  uip_appdata = &uip_buf[UIP_LLH_LEN + UIP_IPTCPH_LEN];// 14 + 20 + 40
 
 #if UIP_UDP_CHECKSUMS
   /* Calculate UDP checksum. */
@@ -1587,7 +1612,8 @@ uip_process(uint8_t flag)
   UIP_IP_BUF->proto = UIP_PROTO_TCP;
 
   UIP_STAT(++uip_stat.tcp.recv);
-  PRINTF("Receiving TCP packet\n");
+  PRINTF("Receiving TCP packet srcport=0x%X destport=0x%X\n", UIP_TCP_BUF->srcport, UIP_TCP_BUF->destport);
+
   /* Start of TCP input header processing code. */
 
   if(uip_tcpchksum() != 0xffff) {   /* Compute and check the TCP
@@ -2296,7 +2322,7 @@ uip_process(uint8_t flag)
   UIP_IP_BUF->tcflow = 0x00;
   UIP_IP_BUF->flow = 0x00;
   send:
-  PRINTF("Sending packet with length %d (%d)\n", uip_len,
+  PRINTF("%s Sending packet with uip_len=%d (IP_LEN=002x-%02x)\n", __func__, uip_len,
       (UIP_IP_BUF->len[0] << 8) | UIP_IP_BUF->len[1]);
 
   UIP_STAT(++uip_stat.ip.sent);
@@ -2327,7 +2353,18 @@ void
 uip_send(const void *data, int len)
 {
   int copylen;
+  int i;
+  u8 *buf = data;
+  printf("+%s len=%d ", __func__, len);
 
+    for (i = 0; i < len; i++) {
+      if (0 == (i % 16))
+          printf("\n");
+    
+      printf("%02x ", buf[i]);
+    }
+    printf("\n");
+    
   if(uip_sappdata != NULL) {
     copylen = MIN(len, UIP_BUFSIZE - UIP_LLH_LEN - UIP_TCPIP_HLEN -
         (int)((char *)uip_sappdata -
@@ -2335,6 +2372,7 @@ uip_send(const void *data, int len)
   } else {
     copylen = MIN(len, UIP_BUFSIZE - UIP_LLH_LEN - UIP_TCPIP_HLEN);
   }
+  printf("%s copylen=%d\n", __func__, copylen);
   if(copylen > 0) {
     uip_slen = copylen;
     if(data != uip_sappdata) {

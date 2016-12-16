@@ -46,13 +46,13 @@ void clock_init()
 }
 
 // system uptime ms 
-clock_time_t clock_time(void) 
+clock_time_t clock_time(void)
 {
     return current_clock;
 }
 
 // system uptime seconds
-unsigned long clock_seconds(void) 
+unsigned long clock_seconds(void)
 {
     return current_seconds;
 }

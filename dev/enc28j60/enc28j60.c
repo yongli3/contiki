@@ -458,7 +458,7 @@ reset(void)
     while((readreg(ESTAT) & ESTAT_CLKRDY) == 0);
 
     //PRINTF("ID=%d\n", readreg(EREVID));
-
+#if 0
     setregbank(ERXTX_BANK);
     for (i = 0; i < 0x20; i++) {
         PRINTF("dump reg%d-%x 0x%x\n", bank, i, readreg(i));
@@ -478,7 +478,7 @@ reset(void)
     for (i = 0; i < 0x20; i++) {
         PRINTF("dump reg%d-%x 0x%x\n", bank, i, readreg(i));
     }
-
+#endif
     PRINTF("rev=%d\n", readrev());  
 
   setregbank(ERXTX_BANK);
@@ -633,6 +633,8 @@ enc28j60_send(const uint8_t *data, uint16_t datalen)
 {
   uint16_t dataend;
 
+  PRINTF("%s %d\n", __func__, datalen);
+
   if(!initialized) {
     return -1;
   }
@@ -716,7 +718,7 @@ enc28j60_send(const uint8_t *data, uint16_t datalen)
 int
 enc28j60_read(uint8_t *buffer, uint16_t bufsize)
 {
-  int n, len, next, err;
+  int n, len, next, err, i;
 
   uint8_t nxtpkt[2];
   uint8_t status[2];
@@ -735,7 +737,7 @@ enc28j60_read(uint8_t *buffer, uint16_t bufsize)
     return 0;
   }
 
-  PRINTF("enc28j60: EPKTCNT 0x%02x\n", n);
+  PRINTF("%s: EPKTCNT 0x%02x\n", __func__, n);
 
   setregbank(ERXTX_BANK);
   /* Read the next packet pointer */
@@ -791,12 +793,48 @@ enc28j60_read(uint8_t *buffer, uint16_t bufsize)
     PRINTF("enc28j60: rx err: flushed %d\n", len);
     return 0;
   }
-  PRINTF("enc28j60: rx=%d: %02x:%02x:%02x:%02x:%02x:%02x\n", len,
-         0xff & buffer[0], 0xff & buffer[1], 0xff & buffer[2],
-         0xff & buffer[3], 0xff & buffer[4], 0xff & buffer[5]);
+  PRINTF("enc28j60: rx=%d", len);
+
+  // dump IP packet
+#if 1
+  for (i = 0; i < len; i++) {
+    if (0 == (i % 16))
+        PRINTF("\n");
+
+    PRINTF("%02x ", buffer[i]);
+  }
+
+PRINTF("\ndest MAC: %02x-%02x-%02x-%02x-%02x-%02x ", buffer[0], buffer[1], buffer[2],
+    buffer[3], buffer[4], buffer[5]);
+
+PRINTF("Src MAC: %02x-%02x-%02x-%02x-%02x-%02x\n", buffer[6], buffer[7], buffer[8],
+      buffer[9], buffer[10], buffer[11]);
+
+if ((buffer[12] == 0x8) && (buffer[13] == 0)) {
+    PRINTF("IPV4 ");
+} else 
+    PRINTF("IPV6? ");
+
+    PRINTF("Proto: %x ", buffer[23]);
+
+    if (buffer[23] == 0x11) { // UDP
+        PRINTF("UDP Src IP: %d.%d.%d.%d ", buffer[26], buffer[27], buffer[28], buffer[29]);
+        PRINTF("Dst IP: %d.%d.%d.%d\n", buffer[30], buffer[31], buffer[32], buffer[33]);    
+    }
+
+  if (buffer[23] == 0x6) { // TCP
+      PRINTF("TCP Src IP: %d.%d.%d.%d ", buffer[26], buffer[27], buffer[28], buffer[29]);
+      PRINTF("Dst IP: %d.%d.%d.%d\n", buffer[30], buffer[31], buffer[32], buffer[33]);    
+  }
+
+  if (buffer[23] == 0x1) { // ICMP
+      PRINTF("ICMP Src IP: %d.%d.%d.%d ", buffer[26], buffer[27], buffer[28], buffer[29]);
+      PRINTF("Dst IP: %d.%d.%d.%d\n", buffer[30], buffer[31], buffer[32], buffer[33]);    
+  }
+#endif
 
   received_packets++;
-  PRINTF("enc28j60: received_packets %d\n", received_packets);
+  PRINTF("\nenc28j60: received_packets %d\n", received_packets);
   return len;
 }
 /*---------------------------------------------------------------------------*/

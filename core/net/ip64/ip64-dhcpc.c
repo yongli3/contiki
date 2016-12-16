@@ -97,7 +97,7 @@ struct dhcp_msg {
 #define DHCP_OPTION_END         255
 
 static uint32_t xid;
-static const uint8_t magic_cookie[4] = {99, 130, 83, 99};
+static const uint8_t magic_cookie[4] = {0x63, 0x82, 0x53, 0x63};
 /*---------------------------------------------------------------------------*/
 static uint8_t *
 add_msg_type(uint8_t *optptr, uint8_t type)
@@ -176,6 +176,7 @@ send_discover(void)
   uint8_t *end;
   struct dhcp_msg *m = (struct dhcp_msg *)uip_appdata;
 
+   printf("+%s\n", __func__);
   create_msg(m);
 
   end = add_msg_type(&m->options[4], DHCPDISCOVER);
@@ -190,6 +191,7 @@ send_request(void)
 {
   uint8_t *end;
   struct dhcp_msg *m = (struct dhcp_msg *)uip_appdata;
+  printf("+%s\n", __func__);
 
   create_msg(m);
   
@@ -280,7 +282,11 @@ PT_THREAD(handle_dhcp(process_event_t ev, void *data))
 {
   clock_time_t ticks;
 
+  printf("+%s ev=%X\n", __func__, ev);
+
   PT_BEGIN(&s.pt);
+
+  printf("%s ev=%X\n", __func__, ev);
   
  init:
   xid++;
@@ -333,7 +339,7 @@ PT_THREAD(handle_dhcp(process_event_t ev, void *data))
   } while(s.state != STATE_CONFIG_RECEIVED);
   
  bound:
-#if 0
+#if 1
   printf("Got IP address %d.%d.%d.%d\n", uip_ipaddr_to_quad(&s.ipaddr));
   printf("Got netmask %d.%d.%d.%d\n",	 uip_ipaddr_to_quad(&s.netmask));
   printf("Got DNS server %d.%d.%d.%d\n", uip_ipaddr_to_quad(&s.dnsaddr));
@@ -402,13 +408,15 @@ PT_THREAD(handle_dhcp(process_event_t ev, void *data))
 /*---------------------------------------------------------------------------*/
 void
 ip64_dhcpc_init(const void *mac_addr, int mac_len)
+#if 0
 {
   /* Although this is DHCPv4, we explicitly bind the socket to an IPv6
      address so that it can operate over the ip64 bridge. */
   uip_ip6addr_t v6addr;
   uip_ip4addr_t v4addr;
   struct uip_udp_conn *conn2;
-  
+
+  printf("+%s\n", __func__);
   s.mac_addr = mac_addr;
   s.mac_len  = mac_len;
 
@@ -423,12 +431,58 @@ ip64_dhcpc_init(const void *mac_addr, int mac_len)
   if(conn2 != NULL) {
     udp_bind(conn2, UIP_HTONS(IP64_DHCPC_CLIENT_PORT));
   }
+  printf("%s conn=%X conn2=%X\n", __func__, s.conn, conn2);
+  uip_debug_ipaddr_print(&(s.conn->ripaddr));
+  printf("\n");
+
+  uip_debug_ipaddr_print(&(conn2->ripaddr));
+  printf("\n");
+ 
+  
   PT_INIT(&s.pt);
 }
+#else
+{
+  uip_ipaddr_t addr;
+  int i;
+  unsigned char *buf = mac_addr;
+  s.mac_addr = mac_addr;
+  s.mac_len  = mac_len;
+  struct uip_udp_conn *conn2;
+  
+  printf("+%s mac_len=%d ", __func__, mac_len);
+
+  for (i = 0; i < mac_len; i++)
+    printf("%x ", buf[i]);
+  printf("\n");
+
+  s.state = STATE_INITIAL;
+  uip_ipaddr(&addr, 255,255,255,255);
+  s.conn = udp_new(&addr, UIP_HTONS(IP64_DHCPC_SERVER_PORT), NULL);
+  if(s.conn != NULL) {
+    udp_bind(s.conn, UIP_HTONS(IP64_DHCPC_CLIENT_PORT));
+  }
+  printf("%s conn=%X ripaddr=", __func__);
+  uip_debug_ipaddr_print(&(s.conn->ripaddr));
+  printf("\n");
+
+  conn2 = udp_new(NULL, UIP_HTONS(IP64_DHCPC_SERVER_PORT), NULL);
+  if(conn2 != NULL) {
+    udp_bind(conn2, UIP_HTONS(IP64_DHCPC_CLIENT_PORT));
+  }
+  
+  uip_debug_ipaddr_print(&(conn2->ripaddr));
+  printf("\n");  
+  PT_INIT(&s.pt);
+}
+#endif
+
 /*---------------------------------------------------------------------------*/
 void
 ip64_dhcpc_appcall(process_event_t ev, void *data)
 {
+    printf("+%s ev=%X data=%X tcpip_event=%X\n", __func__, ev, data, tcpip_event);
+
   if(ev == tcpip_event || ev == PROCESS_EVENT_TIMER) {
     handle_dhcp(ev, data);
   }
@@ -438,7 +492,7 @@ void
 ip64_dhcpc_request(void)
 {
   uip_ipaddr_t ipaddr;
-  
+  printf("+%s\n", __func__);
   if(s.state == STATE_INITIAL) {
     uip_ipaddr(&ipaddr, 0,0,0,0);
     uip_sethostaddr(&ipaddr);

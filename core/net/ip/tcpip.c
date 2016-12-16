@@ -51,10 +51,11 @@
 #include "net/rpl/rpl.h"
 #include "net/rpl/rpl-private.h"
 #endif
+#include "ip64-conf.h"
 
 #include <string.h>
 
-#define DEBUG DEBUG_PRINT
+#define DEBUG 1
 #include "net/ip/uip-debug.h"
 
 #if UIP_LOGGING
@@ -120,6 +121,9 @@ uint8_t
 tcpip_output(const uip_lladdr_t *a)
 {
   int ret;
+
+  printf("+%s outputfunc=%x\n", __func__, outputfunc);
+  
   if(outputfunc != NULL) {
     ret = outputfunc(a);
     return ret;
@@ -190,6 +194,8 @@ check_for_tcp_syn(void)
 static void
 packet_input(void)
 {
+    printf("+%s len=%d\n", __func__, uip_len);
+
   if(uip_len > 0) {
 
 #if UIP_CONF_IP_FORWARD
@@ -202,15 +208,16 @@ packet_input(void)
 #endif /* UIP_CONF_IP_FORWARD */
 
     check_for_tcp_syn();
-    uip_input();
+    uip_input();        // uip_process(UIP_DATA)
     if(uip_len > 0) {
 #if UIP_CONF_TCP_SPLIT
       uip_split_output();
 #else /* UIP_CONF_TCP_SPLIT */
 #if NETSTACK_CONF_WITH_IPV6
-      tcpip_ipv6_output();
+    PRINTF("%s call tcpip_ipv6_output len=%d\n", __func__, uip_len);
+    tcpip_ipv6_output();
 #else /* NETSTACK_CONF_WITH_IPV6 */
-      PRINTF("tcpip packet_input output len %d\n", uip_len);
+      PRINTF("tcpip_output len %d\n", uip_len);
       tcpip_output();
 #endif /* NETSTACK_CONF_WITH_IPV6 */
 #endif /* UIP_CONF_TCP_SPLIT */
@@ -305,7 +312,7 @@ udp_new(const uip_ipaddr_t *ripaddr, uint16_t port, void *appstate)
 {
   struct uip_udp_conn *c;
   uip_udp_appstate_t *s;
-
+printf("+%s port=%X\n", __func__, port);
   c = uip_udp_new(ripaddr, port);
   if(c == NULL) {
     return NULL;
@@ -314,7 +321,7 @@ udp_new(const uip_ipaddr_t *ripaddr, uint16_t port, void *appstate)
   s = &c->appstate;
   s->p = PROCESS_CURRENT();
   s->state = appstate;
-
+printf("%s p=%x appstate=%x lport=%X rport=%X\n", __func__, s->p, s->state, c->lport, c->rport);
   return c;
 }
 /*---------------------------------------------------------------------------*/
@@ -351,6 +358,7 @@ icmp6_new(void *appstate) {
 void
 tcpip_icmp6_call(uint8_t type)
 {
+    printf("+%s p=%x type=0x%x\n", __func__, uip_icmp6_conns.appstate.p, type);
   if(uip_icmp6_conns.appstate.p != PROCESS_NONE) {
     /* XXX: This is a hack that needs to be updated. Passing a pointer (&type)
        like this only works with process_post_synch. */
@@ -370,6 +378,7 @@ eventhandler(process_event_t ev, process_data_t data)
   struct process *p;
 
   switch(ev) {
+  printf("TCPIP %s %X\n", __func__, ev);  
   case PROCESS_EVENT_EXITED:
     /* This is the event we get if a process has exited. We go through
          the TCP/IP tables to see if this process had any open
@@ -481,7 +490,8 @@ eventhandler(process_event_t ev, process_data_t data)
   break;
 
 #if UIP_TCP
-  case TCP_POLL:
+  case TCP_POLL:    
+    printf("TCPIP %s TCP_POLL data=%X\n", __func__, data);    
     if(data != NULL) {
       uip_poll_conn(data);
 #if NETSTACK_CONF_WITH_IPV6
@@ -499,6 +509,7 @@ eventhandler(process_event_t ev, process_data_t data)
 #endif /* UIP_TCP */
 #if UIP_UDP
   case UDP_POLL:
+    printf("TCPIP %s UDP_POLL data=%X\n", __func__, data);
     if(data != NULL) {
       uip_udp_periodic_conn(data);
 #if NETSTACK_CONF_WITH_IPV6
@@ -511,8 +522,8 @@ eventhandler(process_event_t ev, process_data_t data)
     }
     break;
 #endif /* UIP_UDP */
-
   case PACKET_INPUT:
+    printf("TCPIP %s PACKET_INPUT data=%X\n", __func__, data);    
     packet_input();
     break;
   };
@@ -531,6 +542,8 @@ tcpip_ipv6_output(void)
 {
   uip_ds6_nbr_t *nbr = NULL;
   uip_ipaddr_t *nexthop = NULL;
+
+  PRINTF("+%s len=%d\n", __func__, uip_len);
 
   if(uip_len == 0) {
     return;
@@ -588,7 +601,7 @@ tcpip_ipv6_output(void)
         nexthop = uip_ds6_defrt_choose();
         if(nexthop == NULL) {
 #ifdef UIP_FALLBACK_INTERFACE
-          PRINTF("FALLBACK: removing ext hdrs & setting proto %d %d\n",
+          PRINTF("FALLBACK: removing ext hdrs & setting proto uip_ext_len=%d 0x%x\n",
               uip_ext_len, *((uint8_t *)UIP_IP_BUF + 40));
           if(uip_ext_len > 0) {
             extern void remove_ext_hdr(void);
@@ -743,6 +756,7 @@ tcpip_ipv6_output(void)
     }
   }
   /* Multicast IP destination address. */
+  printf("%s multicast \n", __func__);
   tcpip_output(NULL);
   uip_clear_buf();
 }
@@ -752,6 +766,7 @@ tcpip_ipv6_output(void)
 void
 tcpip_poll_udp(struct uip_udp_conn *conn)
 {
+    printf("+%s conn=%X\n", __func__, conn);
   process_post(&tcpip_process, UDP_POLL, conn);
 }
 #endif /* UIP_UDP */
@@ -768,7 +783,6 @@ void
 tcpip_uipcall(void)
 {
   uip_udp_appstate_t *ts;
-
 #if UIP_UDP
   if(uip_conn != NULL) {
     ts = &uip_conn->appstate;
@@ -778,6 +792,9 @@ tcpip_uipcall(void)
 #else /* UIP_UDP */
   ts = &uip_conn->appstate;
 #endif /* UIP_UDP */
+
+printf("+%s uip_conn=%X udp_conn=%X p=%x state=%x\n", 
+    __func__, uip_conn, uip_udp_conn, ts->p, ts->state);
 
 #if UIP_TCP
   {
@@ -825,6 +842,9 @@ PROCESS_THREAD(tcpip_process, ev, data)
 #endif
 
   tcpip_event = process_alloc_event();
+
+printf("+%s tcpip_event=%x\n", __func__, tcpip_event);
+
 #if UIP_CONF_ICMP6
   tcpip_icmp6_event = process_alloc_event();
 #endif /* UIP_CONF_ICMP6 */

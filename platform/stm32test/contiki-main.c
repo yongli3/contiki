@@ -20,6 +20,7 @@
 
 PROCESS_NAME(udp_client_process);
 PROCESS_NAME(about_process);
+///PROCESS_NAME(dhcp_process);
 
 extern uint8_t _data[];
 extern uint8_t _etext[];
@@ -39,15 +40,16 @@ int main()
 {
     linkaddr_t linkaddr;
     int i;
-    
+    uip_ip4addr_t ipv4addr, netmask;
+
     platform_init();
     //while (1);
     printf("%s-%s Hello Contiki\n", __DATE__, __TIME__);
     printf("_etext=%x data[%x-%x] bss[%x-%x]\n", _etext, _data, _edata, __bss_start, __bss_end);
 
     //LED OFF
-    GPIO_SetBits(GPIOA,GPIO_Pin_8);
-    GPIO_SetBits(GPIOD,GPIO_Pin_2);
+    GPIO_SetBits(GPIOA,GPIO_Pin_8);  // LED0
+    GPIO_SetBits(GPIOD,GPIO_Pin_2); // LED1
 
 #if 0
     // test udelay
@@ -69,7 +71,6 @@ int main()
     // LED ON
     GPIO_ResetBits(GPIOA,GPIO_Pin_8);
     GPIO_ResetBits(GPIOD,GPIO_Pin_2);
-
 
 	process_init();
 	process_start(&etimer_process, NULL);
@@ -169,7 +170,7 @@ for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
 
     // set the random seed for MAC_addr[7]
 
-    //NETSTACK_RADIO.init(); // cc2520_driver.init
+    NETSTACK_RADIO.init(); // cc2520_driver.init
 
     for (i = 0; i < 8; i++)
         linkaddr.u8[i] = mac_longaddr[i];
@@ -192,12 +193,20 @@ for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
     NETSTACK_MAC.init();    // nullmac_driver
     NETSTACK_NETWORK.init(); // sicslowpan_driver
 
-    ip64_init();
-    
-    printf(CONTIKI_VERSION_STRING "\n\nTCP started.. RSSI=%d\n", cc2520_rssi());
+    printf(CONTIKI_VERSION_STRING "\n\nTCP started...\n");
 
     process_start(&tcpip_process, NULL);
-    process_start(&about_process, NULL);
+
+    ip64_init();
+    
+#if 1
+    uip_ipaddr(&ipv4addr, 0, 0, 0, 0);
+    uip_ipaddr(&netmask, 255, 255, 255, 0);
+    ip64_set_ipv4_address(&ipv4addr, &netmask);
+#endif
+
+    //process_start(&dhcp_process, NULL);
+    //process_start(&about_process, NULL);
         // test ping6
       //process_start(&ping6_process, NULL);
 

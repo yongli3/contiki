@@ -48,7 +48,7 @@ uip_ipaddr_t uip_hostaddr; /* Needed because it is referenced by dhcpc.c */
 void
 ip64_ipv4_dhcp_init(void)
 {
-  printf("Starting DHCPv4\n");
+  printf("+%s\n", __func__);
   process_start(&ip64_ipv4_dhcp_process, NULL);
 }
 /*---------------------------------------------------------------------------*/
@@ -56,12 +56,12 @@ PROCESS_THREAD(ip64_ipv4_dhcp_process, ev, data)
 {
   PROCESS_BEGIN();
 
+  printf("+%s MAC: %X-%X-%X-%X-%X-%X\n", __func__, ip64_eth_addr.addr[0], ip64_eth_addr.addr[1],
+    ip64_eth_addr.addr[2], ip64_eth_addr.addr[3], ip64_eth_addr.addr[4], ip64_eth_addr.addr[5]);
+
   ip64_dhcpc_init(&ip64_eth_addr, sizeof(ip64_eth_addr));
 
-  printf("Inited\n");
-
   ip64_dhcpc_request();
-  printf("Requested\n");
   while(1) {
     PROCESS_WAIT_EVENT();
 

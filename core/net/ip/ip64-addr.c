@@ -118,6 +118,11 @@ ip64_addr_6to4(const uip_ip6addr_t *ipv6addr,
     return 1;
   }
   /* We could not convert the IPv6 address, so we return 0. */
-  return 0;
+  // FIXME treat it as boardcast 
+    ipv4addr->u8[0] = 0xff;
+    ipv4addr->u8[1] = 0xff;
+    ipv4addr->u8[2] = 0xff;
+    ipv4addr->u8[3] = 0xff;  
+  return 1;
 }
 /*---------------------------------------------------------------------------*/

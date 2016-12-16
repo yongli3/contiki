@@ -363,6 +363,8 @@ process_post_synch(struct process *p, process_event_t ev, process_data_t data)
 {
   struct process *caller = process_current;
 
+printf("+%s ev=%x data=%x\n", __func__, ev, data); // PROCESS_EVENT_POLL = 0x82
+
   call_process(p, ev, data);
   process_current = caller;
 }

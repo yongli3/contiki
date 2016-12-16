@@ -51,6 +51,7 @@
    address is given to the ip64 module through the
    ip64_set_ipv4_address() function.
 */
+#define DEBUG 1
 
 #include "ip64.h"
 #include "ip64-addr.h"
@@ -68,8 +69,6 @@
 
 #include <string.h> /* for memcpy() */
 #include <stdio.h> /* for printf() */
-
-#define DEBUG 1
 
 #if DEBUG
 #undef PRINTF
@@ -186,7 +185,7 @@ ip64_init(void)
   uip_ipaddr(&ipv4_broadcast_addr, 255,255,255,255);
   ip64_hostaddr_configured = 0;
 
-  PRINTF("ip64_init\n");
+  PRINTF("+%s\n", __func__);
   IP64_ETH_DRIVER.init();
 #if IP64_DHCP
   ip64_ipv4_dhcp_init();
@@ -196,7 +195,7 @@ ip64_init(void)
      host. We'll just pick the first one we find in our list. */
   for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
     state = uip_ds6_if.addr_list[i].state;
-    PRINTF("i %d used %d\n", i, uip_ds6_if.addr_list[i].isused);
+    PRINTF("%s i %d used %d\n", __func__, i, uip_ds6_if.addr_list[i].isused);
     if(uip_ds6_if.addr_list[i].isused &&
        (state == ADDR_TENTATIVE || state == ADDR_PREFERRED)) {
       ip64_set_ipv6_address(&uip_ds6_if.addr_list[i].ipaddr);
@@ -377,7 +376,8 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
   if((v6hdr->len[0] << 8) + v6hdr->len[1] <= ipv6packet_len) {
     ipv6len = (v6hdr->len[0] << 8) + v6hdr->len[1] + IPV6_HDRLEN;
   } else {
-    PRINTF("ip64_6to4: packet smaller than reported in IPv6 header, dropping\n");
+    PRINTF("ip64_6to4: packet smaller than reported in IPv6 header, dropping (%x,%x) <= %d\n", 
+        v6hdr->len[0], v6hdr->len[1], ipv6packet_len);
     return 0;
   }
 
@@ -659,9 +659,28 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
   struct icmpv6_hdr *icmpv6hdr;
   uint16_t ipv4len, ipv6len, ipv6_packet_len;
   struct ip64_addrmap_entry *m;
+  int i;
 
   v6hdr = (struct ipv6_hdr *)resultpacket;
   v4hdr = (struct ipv4_hdr *)ipv4packet;
+
+  printf("+%s ipv4len=%d result=%x ", __func__, ipv4packet_len, resultpacket);
+
+// dump ipv4 packet
+  printf(" srcip=%d.%d.%d.%d destip=%d.%d.%d.%d\n", v4hdr->srcipaddr.u8[0], v4hdr->srcipaddr.u8[1],
+    v4hdr->srcipaddr.u8[2], v4hdr->srcipaddr.u8[3], v4hdr->destipaddr.u8[0], v4hdr->destipaddr.u8[1],
+    v4hdr->destipaddr.u8[2], v4hdr->destipaddr.u8[3]);
+
+  printf("vhl=%x tos=%x len=%x-%x ttl=%x proto=%x ipchksum=%02x ", 
+    v4hdr->vhl, v4hdr->tos, v4hdr->len[0], v4hdr->len[1], v4hdr->ttl, v4hdr->proto, v4hdr->ipchksum);
+
+  for (i = 0; i < ipv4packet_len; i++) {
+    if (0 == (i % 16))
+            printf("\n");
+        
+        printf("%02x ", ipv4packet[i]);
+    }
+    printf("\n");
 
   if((v4hdr->len[0] << 8) + v4hdr->len[1] <= ipv4packet_len) {
     ipv4len = (v4hdr->len[0] << 8) + v4hdr->len[1];
@@ -671,6 +690,7 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
   }
 
   if(ipv4len <= IPV4_HDRLEN) {
+    printf("ipv4len too small!\n");
     return 0;
   }
 
@@ -785,12 +805,12 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
   } else {
 
     if(!ip64_hostaddr_configured) {
-      PRINTF("ip64_packet_4to6: no local IPv4 address configured, dropping incoming packet.\n");
+      PRINTF("ip64_4to6: no local IPv4 address configured, dropping incoming packet.\n");
       return 0;
     }
 
     if(!uip_ip4addr_cmp(&v4hdr->destipaddr, &ip64_hostaddr)) {
-      PRINTF("ip64_packet_4to6: the IPv4 destination address %d.%d.%d.%d did not match our IPv4 address %d.%d.%d.%d\n",
+      PRINTF("ip64_4to6: the IPv4 destination address %d.%d.%d.%d did not match our IPv4 address %d.%d.%d.%d\n",
 	     uip_ipaddr_to_quad(&v4hdr->destipaddr),
 	     uip_ipaddr_to_quad(&ip64_hostaddr));
       return 0;
@@ -880,8 +900,30 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
     return 0;
   }
 
+  #define PRINT6ADDRRAW(addr) PRINTF(" %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ", ((uint8_t *)addr)[0], ((uint8_t *)addr)[1], ((uint8_t *)addr)[2], ((uint8_t *)addr)[3], ((uint8_t *)addr)[4], ((uint8_t *)addr)[5], ((uint8_t *)addr)[6], ((uint8_t *)addr)[7], ((uint8_t *)addr)[8], ((uint8_t *)addr)[9], ((uint8_t *)addr)[10], ((uint8_t *)addr)[11], ((uint8_t *)addr)[12], ((uint8_t *)addr)[13], ((uint8_t *)addr)[14], ((uint8_t *)addr)[15])
+
+// 0000:0000:0000:0000:0000:ffff:0aef:3506 = ::FFFF:10.239.53.6; ipv6 address converted from ipv4
+    PRINT6ADDRRAW(&v6hdr->srcipaddr);
   /* Finally, we return the length of the resulting IPv6 packet. */
-  PRINTF("ip64_4to6: ipv6len %d\n", ipv6len);
+  PRINTF("\nip64_4to6: ipv6len=%d srcipaddr=", ipv6len);
+
+    //dump ipv6 packet
+
+    PRINT6ADDR(&v6hdr->srcipaddr);
+    printf(" destipaddr=");
+    PRINT6ADDR(&v6hdr->destipaddr);
+    
+    printf("\nvtc=%x tcflow=%x flow=%x len=%x-%x nxthdr=%x hoplim=%x", 
+      v6hdr->vtc, v6hdr->tcflow, v6hdr->flow, v6hdr->len[0], v6hdr->len[1], v6hdr->nxthdr, v6hdr->hoplim);
+    
+    for (i = 0; i < ipv6len; i++) {
+      if (0 == (i % 16))
+              printf("\n");
+          
+          printf("%02x ", resultpacket[i]);
+      }
+      printf("\n");
+
   return ipv6len;
 }
 /*---------------------------------------------------------------------------*/
@@ -900,7 +942,8 @@ interface_init(void)
 static int
 interface_output(void)
 {
-  PRINTF("ip64: interface_output len %d\n", uip_len);
+  PRINTF("ip64_uip_fallback_interface output: %s len %d\n", __func__, uip_len); 
+  // dump packet should be same as tcpip_output
   IP64_UIP_FALLBACK_INTERFACE.output();  // ip64_eth_interface
 
   return 0;

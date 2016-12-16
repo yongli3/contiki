@@ -17,6 +17,7 @@ prepare(const void *payload, unsigned short payload_len)
 static int
 transmit(unsigned short transmit_len)
 {
+    printf("+nullradio %s %d\n", __func__, transmit_len);
   return RADIO_TX_OK;
 }
 /*---------------------------------------------------------------------------*/

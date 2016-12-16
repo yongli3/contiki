@@ -112,11 +112,11 @@ typedef uint32_t clock_time_t;
 #endif /* NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE */
 
 #ifndef NETSTACK_CONF_RADIO
-#define NETSTACK_CONF_RADIO   nullradio_driver
+#define NETSTACK_CONF_RADIO   nullradio_driver // cc2520_driver
 #endif /* NETSTACK_CONF_RADIO */
 
 #ifndef NETSTACK_CONF_FRAMER
-#define NETSTACK_CONF_FRAMER  framer_802154
+#define NETSTACK_CONF_FRAMER    framer_nullmac // framer_802154
 #endif /* NETSTACK_CONF_FRAMER */
 
 #ifndef CC2520_CONF_AUTOACK
@@ -215,13 +215,19 @@ typedef uint32_t clock_time_t;
 /*#define PROCESS_CONF_FASTPOLL    4*/
 
 #ifdef WITH_UIP6
+// FIXME debug only
+#define UIP_CONF_TTL                    59
 
 #define UIP_CONF_ICMP6                  1
 #define LINKADDR_CONF_SIZE              8
 
-#define UIP_CONF_LL_802154              1
+#define UIP_CONF_LL_802154              0
+#if UIP_CONF_LL_802154
 #define UIP_CONF_LLH_LEN                0
-
+#else
+// ethernet
+#define UIP_CONF_LLH_LEN                14
+#endif
 #define UIP_CONF_ROUTER                 0
 #ifndef UIP_CONF_IPV6_RPL
 #define UIP_CONF_IPV6_RPL               0
@@ -235,7 +241,7 @@ typedef uint32_t clock_time_t;
 #define UIP_CONF_DS6_ROUTE_NBU   30
 #endif /* UIP_CONF_DS6_ROUTE_NBU */
 
-#define UIP_CONF_ND6_SEND_NA		1
+#define UIP_CONF_ND6_SEND_NA		0
 #define UIP_CONF_ND6_SEND_RA		0
 #define UIP_CONF_ND6_REACHABLE_TIME     600000
 #define UIP_CONF_ND6_RETRANS_TIMER      10000
@@ -269,14 +275,15 @@ typedef uint32_t clock_time_t;
 #define SICSLOWPAN_CONF_MAX_MAC_TRANSMISSIONS   5
 #endif /* SICSLOWPAN_CONF_MAX_MAC_TRANSMISSIONS */
 #else /* WITH_UIP6 */
+
 #define UIP_CONF_IP_FORWARD      1
 #define UIP_CONF_BUFFER_SIZE     1000
+
 #endif /* WITH_UIP6 */
 
 #define UIP_CONF_ICMP_DEST_UNREACH 1
 
 #define UIP_CONF_DHCP_LIGHT
-#define UIP_CONF_LLH_LEN         0
 #ifndef  UIP_CONF_RECEIVE_WINDOW
 #define UIP_CONF_RECEIVE_WINDOW  48
 #endif
