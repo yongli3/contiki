@@ -42,6 +42,9 @@
 
 #include "webclient.h"
 
+#define DEBUG DEBUG_PRINT
+#include "net/ip/uip-debug.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -65,6 +68,14 @@ open_url(char *url)
   char *file;
   register char *urlptr;
   static uip_ipaddr_t addr;
+
+  // IPV6 ADDR: a:b:c:d:e:f:g:h
+  // ::ffff:0aef:3503 == 0000:0000:0000:0000:0000:ffff:0aef:3503
+  // URL= http://[::ffff:0aef:3503]/
+
+  strncpy(url, "http://[::ffff:0aef:3503]/", sizeof(url));
+  
+  PRINTF("+%s [%s]\n", __func__, url);
 
   /* Trim off any spaces in the end of the url. */
   urlptr = url + strlen(url) - 1;
@@ -96,6 +107,7 @@ open_url(char *url)
   } else {
     c = ':';
   }
+
   for(i = 0; i < sizeof(host); ++i) {
     if(*urlptr == 0 ||
        *urlptr == '/' ||
@@ -157,9 +169,18 @@ open_url(char *url)
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(shell_wget_process, ev, data)
 {
+
+  PRINTF("+%s ev=0x%x data=%x tcpip_event=%x resolv_event_found=%x\n", 
+    __func__, ev, data, tcpip_event, resolv_event_found); // PROCESS_EVENT_INIT
   PROCESS_BEGIN();
 
   strncpy(url, data, sizeof(url));
+
+  if(strlen(url) == 0) {
+    shell_output_str(&wget_command, "usage 0", "");
+    PROCESS_EXIT();
+  }
+
   open_url(url);
 
   running = 1;

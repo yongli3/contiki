@@ -369,8 +369,8 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
   if((v6hdr->len[0] << 8) + v6hdr->len[1] <= ipv6packet_len) {
     ipv6len = (v6hdr->len[0] << 8) + v6hdr->len[1] + IPV6_HDRLEN;
   } else {
-    PRINTF("ip64_6to4: packet smaller than reported in IPv6 header, dropping (%x,%x) <= %d\n", 
-        v6hdr->len[0], v6hdr->len[1], ipv6packet_len);
+    PRINTF("%s: packet smaller than reported in IPv6 header, dropping (%x,%x) <= %d\n", 
+        __func__, v6hdr->len[0], v6hdr->len[1], ipv6packet_len);
     return 0;
   }
 
@@ -455,7 +455,10 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
     /* Translate only ECHO_REPLY messages. */
     if(icmpv6hdr->type == ICMP6_ECHO_REPLY) {
       icmpv4hdr->type = ICMP_ECHO_REPLY;
-    } else {
+    } else if (icmpv6hdr->type == ICMP6_ECHO) {
+        icmpv4hdr->type = ICMP_ECHO;
+    }
+    else {
       PRINTF("ip64_6to4: ICMPv6 mapping for type %d not implemented.\n",
 	     icmpv6hdr->type);
       return 0;
@@ -636,7 +639,7 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
   }
 
   /* Finally, we return the length of the resulting IPv4 packet. */
-  PRINTF("ip64_6to4: ipv4len %d\n", ipv4len);
+  PRINTF("-%s: ipv4len=%d\n", __func__, ipv4len);
   return ipv4len;
 }
 /*---------------------------------------------------------------------------*/
@@ -770,7 +773,12 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
       v6hdr->nxthdr = IP_PROTO_ICMPV6;
       icmpv6hdr->type = ICMP6_ECHO;
       ip64_addr_copy6(&v6hdr->destipaddr, &ipv6_local_address);
-    } else {
+    } else if (icmpv4hdr->type == ICMP_ECHO_REPLY) {
+      v6hdr->nxthdr = IP_PROTO_ICMPV6;
+      icmpv6hdr->type = ICMP6_ECHO_REPLY;
+      ip64_addr_copy6(&v6hdr->destipaddr, &ipv6_local_address);       
+    } 
+    else {
       PRINTF("ip64_packet_4to6: ICMPv4 packet type %d not supported\n",
 	     icmpv4hdr->type);
       return 0;

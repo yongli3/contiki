@@ -46,7 +46,7 @@
 
 PROCESS(telnetd_process, "Telnet server");
 
-AUTOSTART_PROCESSES(&telnetd_process);
+//AUTOSTART_PROCESSES(&telnetd_process);
 
 #ifndef TELNETD_CONF_LINELEN
 #define TELNETD_CONF_LINELEN 80
@@ -90,7 +90,7 @@ static struct telnetd_state s;
 #define TELNET_DO    253
 #define TELNET_DONT  254
 
-#define DEBUG 0
+#define DEBUG 1
 #if DEBUG
 #include <stdio.h>
 #define PRINTF(...) printf(__VA_ARGS__)
@@ -164,6 +164,7 @@ telnetd_quit(void)
   LOADER_UNLOAD();
 }
 /*---------------------------------------------------------------------------*/
+#if 0
 void
 shell_prompt(char *str)
 {
@@ -197,6 +198,7 @@ shell_exit(void)
 {
   s.state = STATE_CLOSE;
 }
+#endif
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(telnetd_process, ev, data)
 {
@@ -209,6 +211,8 @@ PROCESS_THREAD(telnetd_process, ev, data)
 #endif /* TELNETD_CONF_GUI */
 
   petsciiconv_toascii(telnetd_reject_text, strlen(telnetd_reject_text));
+
+    printf("%s listen on TCP 23\n", __func__);
 
   tcp_listen(UIP_HTONS(23));
 

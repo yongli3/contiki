@@ -88,6 +88,7 @@ shell_prompt(char *str)
 void
 shell_exit(void)
 {
+    printf("%s\n", __func__);
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(serial_shell_process, ev, data)

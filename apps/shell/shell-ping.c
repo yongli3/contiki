@@ -39,6 +39,16 @@
 #include "shell.h"
 #include "contiki-net.h"
 
+#define DEBUG 1
+#if DEBUG
+#include <stdio.h>
+#define PRINTF(...) printf(__VA_ARGS__)
+#define PRINT6ADDR(addr) PRINTF(" %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ", ((uint8_t *)addr)[0], ((uint8_t *)addr)[1], ((uint8_t *)addr)[2], ((uint8_t *)addr)[3], ((uint8_t *)addr)[4], ((uint8_t *)addr)[5], ((uint8_t *)addr)[6], ((uint8_t *)addr)[7], ((uint8_t *)addr)[8], ((uint8_t *)addr)[9], ((uint8_t *)addr)[10], ((uint8_t *)addr)[11], ((uint8_t *)addr)[12], ((uint8_t *)addr)[13], ((uint8_t *)addr)[14], ((uint8_t *)addr)[15])
+#else
+#define PRINTF(...)
+#define PRINT6ADDR(addr)
+#endif
+
 /*---------------------------------------------------------------------------*/
 PROCESS(shell_ping_process, "ping");
 SHELL_COMMAND(ping_command,
@@ -65,6 +75,11 @@ send_ping(uip_ipaddr_t *dest_addr)
 #if NETSTACK_CONF_WITH_IPV6
 {
   static uint16_t count;
+
+  PRINTF("+%s ", __func__);
+  PRINT6ADDR(dest_addr);
+  PRINTF("\n");
+
   UIP_IP_BUF->vtc = 0x60;
   UIP_IP_BUF->tcflow = 1;
   UIP_IP_BUF->flow = 0;
@@ -142,7 +157,11 @@ PROCESS_THREAD(shell_ping_process, ev, data)
 		     "ping <server>: server as address", "");
     PROCESS_EXIT();
   }
-  uiplib_ipaddrconv(data, &remoteaddr);
+
+  uiplib_ipaddrconv("::ffff:0aef:3506", &remoteaddr);
+//  uip_ip6addr(&remoteaddr, UIP_DS6_DEFAULT_PREFIX, 0, 0, 0, 0x0215, 0x2000, 0x0002, 0x2145);
+
+  icmp6_new(NULL);
 
   send_ping(&remoteaddr);
   
@@ -155,6 +174,11 @@ PROCESS_THREAD(shell_ping_process, ev, data)
 
     if(etimer_expired(&e)) {
       PROCESS_EXIT();      
+    }
+    PRINTF("%s ev=%x\n", __func__, ev);
+
+    if(ev == tcpip_icmp6_event && *(uint8_t *)data == ICMP6_ECHO_REPLY) {
+      PRINTF("Echo Reply\n");
     }
     
     if(ev == shell_event_input) {

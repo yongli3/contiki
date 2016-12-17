@@ -97,6 +97,8 @@
 #define MACON1_MARXEN 0x01
 
 #define MACON3_PADCFG_FULL 0xe0
+#define MACON3_PADCFG_VLAN 0xa0
+
 #define MACON3_TXCRCEN     0x10
 #define MACON3_FRMLNEN     0x02
 #define MACON3_FULDPX      0x01
@@ -550,7 +552,7 @@ reset(void)
   setregbitfield(MACON1, MACON1_MARXEN | MACON1_TXPAUS | MACON1_RXPAUS);
 
   /* Set padding, crc, full duplex */
-  setregbitfield(MACON3, MACON3_PADCFG_FULL | MACON3_TXCRCEN | MACON3_FULDPX |
+  setregbitfield(MACON3, MACON3_PADCFG_VLAN | MACON3_TXCRCEN | MACON3_FULDPX |
                          MACON3_FRMLNEN);
 
   /* Don't modify MACON4 */
@@ -812,7 +814,9 @@ PRINTF("Src MAC: %02x-%02x-%02x-%02x-%02x-%02x\n", buffer[6], buffer[7], buffer[
 
 if ((buffer[12] == 0x8) && (buffer[13] == 0)) {
     PRINTF("IPV4 ");
-} else 
+} else if ((buffer[12] == 0x8) && (buffer[13] == 0x6)) {
+    PRINTF("ARP ");
+} else
     PRINTF("IPV6? ");
 
     PRINTF("Proto: %x ", buffer[23]);

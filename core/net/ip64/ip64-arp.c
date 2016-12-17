@@ -39,7 +39,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#define printf(...)
+//#define printf(...)
 
 struct arp_hdr {
   struct ip64_eth_hdr ethhdr;
@@ -158,7 +158,11 @@ arp_update(uip_ip4addr_t *ipaddr, struct uip_eth_addr *ethaddr)
 {
   register struct arp_entry *tabptr = arp_table;
   int i, c;
-  
+
+  PRINTF("+%s ip=%d.%d.%d.%d MAC=%x-%x-%x-%x-%x-%x\n", __func__, 
+    ipaddr->u8[0], ipaddr->u8[1], ipaddr->u8[2], ipaddr->u8[3],
+    ethaddr->addr[0], ethaddr->addr[1], ethaddr->addr[2], ethaddr->addr[3],
+    ethaddr->addr[4], ethaddr->addr[5]);
   /* Walk through the ARP mapping table and try to find an entry to
      update. If none is found, the IP -> MAC address mapping is
      inserted in the ARP table. */
@@ -221,6 +225,8 @@ ip64_arp_arp_input(const uint8_t *packet, uint16_t packet_len)
 {
   struct arp_hdr *arphdr = (struct arp_hdr *)packet;
 
+  PRINTF("+%s packet_len=%d\n", __func__, packet_len);
+
   if(packet_len < sizeof(struct arp_hdr)) {
     printf("ip64_arp_arp_input: len too small %d\n", packet_len);
     return 0;
@@ -230,7 +236,7 @@ ip64_arp_arp_input(const uint8_t *packet, uint16_t packet_len)
   case UIP_HTONS(ARP_REQUEST):
     /* ARP request. If it asked for our address, we send out a
        reply. */
-    printf("ip64_arp_arp_input: request for %d.%d.%d.%d (we are %d.%d.%d.%d)\n",
+    PRINTF("ip64_arp_arp_input: request dip=%d.%d.%d.%d (we are %d.%d.%d.%d)\n",
 	   arphdr->dipaddr.u8[0], arphdr->dipaddr.u8[1],
 	   arphdr->dipaddr.u8[2], arphdr->dipaddr.u8[3],
 	   ip64_get_hostaddr()->u8[0], ip64_get_hostaddr()->u8[1],
@@ -256,6 +262,11 @@ ip64_arp_arp_input(const uint8_t *packet, uint16_t packet_len)
     }
     break;
   case UIP_HTONS(ARP_REPLY):
+    PRINTF("ip64_arp_arp_input: reply dip=%d.%d.%d.%d (we are %d.%d.%d.%d)\n",
+	   arphdr->dipaddr.u8[0], arphdr->dipaddr.u8[1],
+	   arphdr->dipaddr.u8[2], arphdr->dipaddr.u8[3],
+	   ip64_get_hostaddr()->u8[0], ip64_get_hostaddr()->u8[1],
+	   ip64_get_hostaddr()->u8[2], ip64_get_hostaddr()->u8[3]);    
     /* ARP reply. We insert or update the ARP table if it was meant
        for us. */
     if(uip_ip4addr_cmp(&arphdr->dipaddr, ip64_get_hostaddr())) {
@@ -383,7 +394,9 @@ ip64_arp_create_arp_request(uint8_t *llhdr, const uint8_t *nlhdr)
   struct ipv4_hdr *ipv4_hdr = (struct ipv4_hdr *)nlhdr;
   struct arp_hdr *arp_hdr = (struct arp_hdr *)llhdr;
   uip_ip4addr_t ipaddr;
-  
+
+  PRINTF("+%s\n", __func__);
+
   if(!uip_ipaddr_maskcmp(&ipv4_hdr->destipaddr,
 			 ip64_get_hostaddr(),
 			 ip64_get_netmask())) {
