@@ -90,6 +90,12 @@ int main()
     shell_udpsend_init();
     shell_wget_init();
 
+    //TODO test udp/tcp and telnetd/web
+    //    tcp_listen
+
+    shell_httpd_init();
+
+
     
     //telnetd_init();
 
