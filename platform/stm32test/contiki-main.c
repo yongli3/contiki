@@ -35,13 +35,16 @@ static void platform_init();
 uint8_t sys_seed;
 uint8_t mac_longaddr[8] = { 0x80, 0x03, 0x00, 0x00, 0, 0, 0, 0xbb };
 uint16_t mac_shortaddr;
-
+static unsigned char buffer[140];
 int main()
 {
     linkaddr_t linkaddr;
     int i;
+    int buffer_len;
+    int ret;
     unsigned char ch;
     uip_ip4addr_t ipv4addr, netmask;
+    unsigned short crc16;
 
     platform_init();
     //while (1);
@@ -67,7 +70,7 @@ int main()
         else
             GPIO_SetBits(GPIOD, GPIO_Pin_2);
     }
-#endif   
+#endif
     mdelay(300);
     // LED ON
     GPIO_ResetBits(GPIOA,GPIO_Pin_8);
@@ -96,14 +99,90 @@ int main()
 
     shell_httpd_init();
 
+
+#if 0 // test crc
+    i = 0;
+    memset(buffer, 0, sizeof(buffer));
+    // header_len = 3; 0x1, 0x0, 0xff
+    // filename = rb.txt
+    buffer[i++] = 0x72;
+    buffer[i++] = 0x62;
+    buffer[i++] = 0x2e;
+    buffer[i++] = 0x74;
+    buffer[i++] = 0x78;
+    buffer[i++] = 0x74;
+    buffer[i++] = 0x0;
+    // filesize = 27 bytes
+    buffer[i++] = 0x32;
+    buffer[i++] = 0x37;
+    buffer[i++] = 0x20;
+    // file attrib
+    buffer[i++] = 0x31;
+    buffer[i++] = 0x33;
+    buffer[i++] = 0x30;
+    buffer[i++] = 0x32;
+    buffer[i++] = 0x35;
+    buffer[i++] = 0x37;
+    buffer[i++] = 0x34;
+    buffer[i++] = 0x32;
+    buffer[i++] = 0x37;
+    buffer[i++] = 0x37;
+    buffer[i++] = 0x35;
+    buffer[i++] = 0x20;
+    
+    buffer[i++] = 0x31;
+    buffer[i++] = 0x30;
+    buffer[i++] = 0x30;
+    buffer[i++] = 0x36;
+    buffer[i++] = 0x36;
+    buffer[i++] = 0x34;
+    buffer[i++] = 0x20;
+    
+    buffer[i++] = 0x30;
+    buffer[i++] = 0x20;
+    
+    buffer[i++] = 0x31;
+    buffer[i++] = 0x20;
+    
+    buffer[i++] = 0x32;
+    buffer[i++] = 0x37;
+    
+    buffer[127] = 0x1;
+
+    crc16 = crc16_ccitt(0, buffer, 128);
+    printf("crc16=%x\n", crc16);
+ while (1);
+#endif
     // Enable uart2, add ymodem support
     // add tstc/getc/putc functions for uart2
-#if 0 // test UART2
+#if 0 // test UART2 for ymodem
+    buffer_len = 0;
     while (1) {
-        ch = getc2();
-        putc2(ch);
+        //ch = getc2();
+        putc2('C');
+        while (getc2_timeout(&ch, 2000) <= 0) {// 3 +128+2
+            putc2('C');
+        }
+        // read the first packet 128+3+2
+        for (i = 0; i < 132; i++) {
+            buffer[buffer_len++] = ch;
+            printf("%x(%c)\n", ch, ch);
+            ch = getc2();
+       }
+       buffer[buffer_len++] = ch; 
+       printf("last %x(%c) read %d\n", ch, ch, buffer_len);
+
+       uint16_t uCRC = crc16_ccitt(0, &buffer[3], 128);
+       printf("crc=%x\n", uCRC);
+       for (i = 0; i < 134; i++) {
+          printf("%x(%c)\n", buffer[i], buffer[i]);
+       }
+        while (1);
     }
- #endif  
+ #endif
+
+    shell_rb_init();
+ 
     //net-uart
     
     //telnetd_init();

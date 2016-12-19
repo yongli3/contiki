@@ -5,7 +5,8 @@ shell_src = shell.c shell-reboot.c shell-vars.c shell-ps.c \
             shell-power.c \
             shell-base64.c \
             shell-memdebug.c \
-	    shell-powertrace.c shell-crc.c
+	    shell-powertrace.c shell-crc.c \
+	    shell-rb.c	   
 shell_dsc = shell-dsc.c
 	    
 ifeq ($(CONTIKI_WITH_RIME),1)

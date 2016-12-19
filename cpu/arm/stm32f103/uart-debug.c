@@ -46,7 +46,7 @@ void USART1_handler(void)
         uart1_ch_avail = 1;
         uart1_ch = c;
         if (NULL != uart1_input_handler) {
-            uart1_input_handler(c);
+            uart1_input_handler(c);  // serial_line_input_byte
         }
         //counter++;
         /// printf("%d\r\n",counter);
@@ -147,7 +147,7 @@ void uart2_init(void)
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
   
-    USART_InitStructure.USART_BaudRate = 115200;
+    USART_InitStructure.USART_BaudRate = 9600;
     USART_InitStructure.USART_WordLength = USART_WordLength_8b;
     USART_InitStructure.USART_StopBits = USART_StopBits_1;
     USART_InitStructure.USART_Parity = USART_Parity_No;
@@ -211,16 +211,21 @@ int getc2(void)
     return ch;
 }
 // wait for N ms
-int getc2_timeout(unsigned char *c, unsigned int timeout)
+int getc2_timeout(unsigned char *c, unsigned long timeout)
 {
     unsigned long now = clock_time();
+    unsigned long current, delta;
 
     while(USART_GetFlagStatus(USART2, USART_FLAG_RXNE) == RESET) {
-        if ((clock_time - now) > timeout)
+        current = clock_time();
+        delta = current - now;
+        if (delta > timeout) {
+            printf("timeout\n");
             return 0;
+        }
     }
-    
-    *c = USART_ReceiveData(USART2) & 0xfF;  
+    *c = USART_ReceiveData(USART2) & 0xfF;
+    //printf("Get %x\n", *c);
     return 1;
 }
 

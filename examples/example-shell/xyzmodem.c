@@ -39,8 +39,19 @@
 #define NAK 0x15
 #define CAN 0x18
 #define EOF 0x1A		/* ^Z for DOS officionados */
+#define CTRLZ 0x1A
+#define C	0x43
+
+#define MAXRETRYCOUNT 30
 
 #define USE_YMODEM_LENGTH
+
+#define DEBUG 1
+#if DEBUG
+#define PRINTF(...) printf(__VA_ARGS__)
+#else
+#define PRINTF(...)
+#endif
 
 /* Data & state local to the protocol */
 static struct
@@ -57,23 +68,52 @@ static struct
 #endif
 } xyz;
 
+#define YMODEM_TIMEOUT			(901)
+#define YMODEM_FILEOPEN_ERROR	(902)
+#define YMODEM_RETRYFAIL		(903)
+#define YMODEM_FILEWRITE_ERROR	(904)
+
+#define PADDINGBYTE	0xEE
+#define HEADER_LEN 3
+#define DATA_LEN_1K 1024
+#define DATA_LEN_128 128
+#define CRC_LEN 2
+
+#define PACKET_LEN_1K (HEADER_LEN + DATA_LEN_1K + CRC_LEN)
+//YModem 1024 + 3 head chars + 2 crc
+#define BUFFER_SIZE (HEADER_LEN + DATA_LEN_1K + CRC_LEN)
+#define PACKET_LEN_128 (HEADER_LEN + DATA_LEN_128 + CRC_LEN)
+
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
+
+uint8_t ymodem_buf[BUFFER_SIZE];
+uint8_t tCRC[2];
+unsigned int ErrorCode;
+unsigned int FileLength;
+
 #define xyzModem_CHAR_TIMEOUT            2000	/* 2 seconds */
 #define xyzModem_MAX_RETRIES             20
 #define xyzModem_MAX_RETRIES_WITH_CRC    10
 #define xyzModem_CAN_COUNT                3	/* Wait for 3 CAN before quitting */
 
 typedef int cyg_int32;
-static int
-CYGACC_COMM_IF_GETC_TIMEOUT (char chan, char *c)
+static int CYGACC_COMM_IF_GETC_TIMEOUT(char chan, char *c)
 {
   return getc2_timeout(c, xyzModem_CHAR_TIMEOUT);
 }
 
-static void
-CYGACC_COMM_IF_PUTC (char x, char y)
+
+static void CYGACC_COMM_IF_PUTC(char x, char y)
 {
   putc2(y);
 }
+
+static void YMODEM_sendchar(const char ch)
+{
+    putc2(ch);
+}
+
 
 /* Validate a hex character */
 __inline__ static bool
@@ -117,7 +157,7 @@ _tolower (char c)
 
 /* Parse (scan) a number */
 static bool
-parse_num (char *s, unsigned long *val, char **es, char *delim)
+parse_num(char *s, unsigned long *val, char **es, char *delim)
 {
   bool first = true;
   int radix = 10;
@@ -163,16 +203,18 @@ parse_num (char *s, unsigned long *val, char **es, char *delim)
   return true;
 }
 
-
 #define USE_SPRINTF
 #define ZM_DEBUG(x)
 
 /* Wait for the line to go idle */
 static void
-xyzModem_flush (void)
+xyzModem_flush(void)
 {
   int res;
   char c;
+
+    PRINTF("+%s\n", __func__);
+  
   while (true)
     {
       res = CYGACC_COMM_IF_GETC_TIMEOUT (*xyz.__chan, &c);
@@ -181,10 +223,263 @@ xyzModem_flush (void)
     }
 }
 
-static int
-xyzModem_get_hdr (void)
+static bool xCheckPacket(int iCRCMode, const uint8_t *pcBuffer, int iSize)
 {
-  char c;
+    uint16_t uCRC;
+	if (iCRCMode) {
+		uint16_t uCRC = crc16_ccitt(0, (unsigned char *)pcBuffer, iSize);
+		tCRC[0] = uCRC >> 8;
+		tCRC[1] = uCRC & 0xFF;
+		uint16_t uCRCInPacket = (pcBuffer[iSize] << 8) + pcBuffer[iSize + 1];
+		if (uCRC == uCRCInPacket) {
+			return true;
+         }
+        else {
+            PRINTF("%x != %x\n", uCRC, uCRCInPacket);
+        }
+	} else {
+		int i;
+		uint8_t uChecksum = 0;
+		for (i = 0; i < iSize; ++i) {
+			uChecksum += pcBuffer[i];
+		}
+		if (uChecksum == pcBuffer[iSize])
+			return true;
+	}
+
+	ErrorCode = 901;
+	return false;
+}
+
+static bool xExtractFileNameAndLength(uint8_t *buffer, uint8_t *fileName, unsigned int *fileLength)
+{
+
+	if (!((*buffer == STX || *buffer == SOH) && *(buffer + 1) == 0 && *(buffer + 2) == 255))
+		return false;
+
+	buffer += HEADER_LEN;
+	if (*buffer == 0) {
+		*fileName = 0;
+		*fileLength = 0;
+		return true;
+	}
+
+	while (*buffer != 0)
+		*fileName++ = *buffer++;
+	*fileName = 0;
+
+	//extract FileLength
+	*fileLength = 0;
+	buffer++;
+	while ((*buffer != ' ') && (*buffer != 0))
+		*fileLength = *fileLength * 10 + (*buffer++ - '0');
+
+	return true;
+}
+
+void vRbCommand(char *pcArgs)
+{
+    int res;
+	int i;
+	int MaxDataLengthInThisPacket = DATA_LEN_1K;
+	int RetryCount = 0;
+	uint8_t *pbuf;
+    uint8_t FileName[8];
+    uint8_t PacketNumber;
+
+	int ReceivedDataLength;
+	int DataLengthInPacket;
+	unsigned char rx_char;
+    int buf_index;
+    unsigned int ErrorCode;
+
+	unsigned int DataSizeWritten;
+
+	ErrorCode = 0;
+
+    PRINTF("+%s ymodem_buffer=%x\n", __func__, ymodem_buf);
+
+	while (*pcArgs == ' ' && pcArgs++);
+
+#if 0
+	if (*pcArgs == 0) {
+		PRINTF("Invalid patch\n\r");
+		return;
+	}
+#endif
+	//Fill the data with PADDINGBYTE, then we can know if we miss some data.
+	for (i = 0; i < BUFFER_SIZE; i++)
+		ymodem_buf[i] = PADDINGBYTE;
+
+	//StartYMODEM();
+
+StartreceiveFileNamePacket :
+	ReceivedDataLength = 0;
+	PacketNumber = 0;
+	buf_index = 0;
+	FileName[0] = 0;
+
+	//waiting for sender reply first filename packet
+	YMODEM_sendchar(C);
+    //rx_char = iInByte(DELAY_1S);
+    //while ((rx_char = iInByte(DELAY_1S)) < 0) {
+	while (getc2_timeout(&rx_char, xyzModem_CHAR_TIMEOUT) <= 0) {
+		RetryCount++;
+		YMODEM_sendchar(C);
+		if (RetryCount >= MAXRETRYCOUNT) {
+			ErrorCode = YMODEM_TIMEOUT;
+			goto EXIT;
+		}
+	}
+
+	//data_buf_index = 0;
+	while (1) {
+		buf_index = 0;
+        PRINTF("filename=[%s]\n", FileName);
+		//if filename isn't null, it means we already got the first byte of first filename packet,
+		//so we don't receive the first byte again
+		if (FileName[0] != 0) {
+            res = getc2_timeout(&rx_char, xyzModem_CHAR_TIMEOUT);        
+			if (res <= 0) {
+				ErrorCode = YMODEM_TIMEOUT;
+				goto EXIT;
+			}
+		}
+
+		ymodem_buf[buf_index++] = rx_char;
+
+        PRINTF("rx_char=%x\n", rx_char);
+		switch (rx_char) {
+		case EOT:
+			PacketNumber = 0;
+			//if (fp) {
+			//	f_close(fp);
+			//	fp = NULL;
+			//}
+			YMODEM_sendchar(ACK);
+			goto StartreceiveFileNamePacket;
+			break;
+		case SOH:
+			MaxDataLengthInThisPacket = DATA_LEN_128;
+			break;
+		case STX:
+			MaxDataLengthInThisPacket = DATA_LEN_1K;
+			break;
+         default:
+            PRINTF("incorrect ? \n");
+            break;
+		}
+
+		//receive the remaining data
+		for (i = 0; i < HEADER_LEN - 1 + MaxDataLengthInThisPacket + CRC_LEN; i++) {// 3-1+2+128
+			if (getc2_timeout(&rx_char, xyzModem_CHAR_TIMEOUT) <= 0) {
+				ErrorCode = YMODEM_TIMEOUT;
+                PRINTF("timeout on %d\n", i);
+				goto EXIT;
+			}
+			ymodem_buf[buf_index++] = rx_char;
+		}
+        PRINTF("PacketNumber=%d buf_index=%d\n", PacketNumber, buf_index);
+        for (i = 0; i < buf_index; i++) {
+            PRINTF("%x[%c]\n", ymodem_buf[i], ymodem_buf[i]);
+        }
+        
+		//if this packet is the first packet,  check packet integrity and extract filename
+		if (PacketNumber == 0 && FileName[0] == 0) {
+			if (false == xCheckPacket(1, &ymodem_buf[HEADER_LEN], MaxDataLengthInThisPacket) 
+                || false == xExtractFileNameAndLength(&ymodem_buf[0], &FileName[0], &FileLength)) {
+				PRINTF("filename packet is garbled start=%x-%x-%x end=%x-%x-%s\n", 
+                    ymodem_buf[0], ymodem_buf[1], ymodem_buf[2], ymodem_buf[130], ymodem_buf[131], ymodem_buf[132]);
+				YMODEM_sendchar(NAK);
+				goto StartreceiveFileNamePacket;
+			} else if (FileName[0] == 0) {
+				//no more file
+				goto EXIT;
+			} else { //get filename successfully
+				//check if we can write this file, otherwise abort this transfer
+				//The argument of rb should be the directory path (ended by '\')
+				//strcpy(AbsFileName, pcArgs);
+				//strcat(AbsFileName, FileName);
+                PRINTF("fileanme=%s\n", FileName);
+				//fr = f_open(&fdDst, AbsFileName, FA_CREATE_ALWAYS | FA_WRITE);
+				//if (fr) {
+					//tell sender to cancel this transfer
+					//YMODEM_sendchar(CAN);
+					//ErrorCode = YMODEM_FILEOPEN_ERROR;
+					//goto EXIT;
+				//}
+				//fp = &fdDst;
+
+				//tell sender we already open the file successfully
+				YMODEM_sendchar(ACK);
+				//initialize a CRC transfer
+				YMODEM_sendchar(C);
+			}
+		} else {
+			//data packet
+			//check packet integrity
+			if (ymodem_buf[1] != 255 - ymodem_buf[2] || (ymodem_buf[1] != PacketNumber && ymodem_buf[1] != PacketNumber - 1) 
+                || false == xCheckPacket(1, &ymodem_buf[HEADER_LEN], MaxDataLengthInThisPacket)) {
+				YMODEM_sendchar(NAK);
+				RetryCount++;
+				if (RetryCount > MAXRETRYCOUNT) {
+					ErrorCode = YMODEM_RETRYFAIL;
+					goto EXIT;
+				}
+				continue;
+			}
+			//sender retransmit old packet
+			else if (ymodem_buf[1] == PacketNumber - 1) {
+				YMODEM_sendchar(ACK);
+				continue;
+			}
+
+			//got good data
+			DataLengthInPacket = FileLength - ReceivedDataLength;
+			if (DataLengthInPacket > MaxDataLengthInThisPacket)
+				DataLengthInPacket = MaxDataLengthInThisPacket;
+
+			pbuf = ymodem_buf + HEADER_LEN;
+            #if 0
+			fr = f_write(fp, pbuf, DataLengthInPacket, &DataSizeWritten);
+			if (fr) {
+				f_close(fp);
+				fp = NULL;
+				//tell sender to cancel this transfer
+				YMODEM_sendchar(CAN);
+				ErrorCode = YMODEM_FILEWRITE_ERROR;
+				goto EXIT;
+			}
+            #endif
+			ReceivedDataLength += DataLengthInPacket;
+
+			//tell sender we got packet successfully
+			YMODEM_sendchar(ACK);
+		}
+
+		//update status for next packet
+		PacketNumber++;
+		RetryCount = 0;
+	}
+	// end while (1)
+
+EXIT:
+	YMODEM_sendchar(ACK);
+	//vFlushInput();
+
+	if (ErrorCode == 0) {
+		PRINTF("\n\rFile is received.\n\r");
+	} else {
+		PRINTF("\n\rFailed to receive the file eror=%d\n\r", ErrorCode);
+	}
+	return;
+}
+
+
+static int
+xyzModem_get_hdr(void)
+{
+  char c = 0;
   int res;
   bool hdr_found = false;
   int i, can_total, hdr_chars;
@@ -195,6 +490,8 @@ xyzModem_get_hdr (void)
   can_total = 0;
   hdr_chars = 0;
 
+PRINTF("+%s\n", __func__);
+
   if (xyz.tx_ack)
     {
       CYGACC_COMM_IF_PUTC (*xyz.__chan, ACK);
@@ -203,7 +500,7 @@ xyzModem_get_hdr (void)
   while (!hdr_found)
     {
       res = CYGACC_COMM_IF_GETC_TIMEOUT (*xyz.__chan, &c);
-      ZM_DEBUG (zm_save (c));
+      PRINTF("%s res=%d c=%x\n", __func__, res, c);
       if (res)
 	{
 	  hdr_chars++;
@@ -247,21 +544,22 @@ xyzModem_get_hdr (void)
 	  /* Data stream timed out */
 	  xyzModem_flush ();	/* Toss any current input */
 	  ZM_DEBUG (zm_dump (__LINE__));
-	  CYGACC_CALL_IF_DELAY_US ((cyg_int32) 250000);
+      mdelay(250);
+	  //CYGACC_CALL_IF_DELAY_US ((cyg_int32) 250000);
 	  return xyzModem_timeout;
 	}
     }
 
   /* Header found, now read the data */
   res = CYGACC_COMM_IF_GETC_TIMEOUT (*xyz.__chan, (char *) &xyz.blk);
-  ZM_DEBUG (zm_save (xyz.blk));
+  PRINTF("blk=%x\n", xyz.blk);
   if (!res)
     {
       ZM_DEBUG (zm_dump (__LINE__));
       return xyzModem_timeout;
     }
   res = CYGACC_COMM_IF_GETC_TIMEOUT (*xyz.__chan, (char *) &xyz.cblk);
-  ZM_DEBUG (zm_save (xyz.cblk));
+  PRINTF("cblk=%x\n", xyz.cblk);
   if (!res)
     {
       ZM_DEBUG (zm_dump (__LINE__));
@@ -269,6 +567,7 @@ xyzModem_get_hdr (void)
     }
   xyz.len = (c == SOH) ? 128 : 1024;
   xyz.bufp = xyz.pkt;
+  PRINTF("buf_len=%d\n", xyz.len);
   for (i = 0; i < xyz.len; i++)
     {
       res = CYGACC_COMM_IF_GETC_TIMEOUT (*xyz.__chan, &c);
@@ -304,6 +603,8 @@ xyzModem_get_hdr (void)
   /* Validate the message */
   if ((xyz.blk ^ xyz.cblk) != (unsigned char) 0xFF)
     {
+      PRINTF("Framing error - blk: %x/%x/%x\n", xyz.blk, xyz.cblk,
+		 (xyz.blk ^ xyz.cblk))
       ZM_DEBUG (zm_dprintf
 		("Framing error - blk: %x/%x/%x\n", xyz.blk, xyz.cblk,
 		 (xyz.blk ^ xyz.cblk)));
@@ -317,6 +618,8 @@ xyzModem_get_hdr (void)
       cksum = crc16_ccitt(0, xyz.pkt, xyz.len);
       if (cksum != ((xyz.crc1 << 8) | xyz.crc2))
 	{
+	    PRINTF("CRC error - recvd: %02x%02x, computed: %x\n",
+				xyz.crc1, xyz.crc2, cksum & 0xFFFF);
 	  ZM_DEBUG (zm_dprintf ("CRC error - recvd: %02x%02x, computed: %x\n",
 				xyz.crc1, xyz.crc2, cksum & 0xFFFF));
 	  return xyzModem_cksum;
@@ -331,6 +634,8 @@ xyzModem_get_hdr (void)
 	}
       if (xyz.crc1 != (cksum & 0xFF))
 	{
+	  PRINTF("Checksum error - recvd: %x, computed: %x\n", xyz.crc1,
+		     cksum & 0xFF);
 	  ZM_DEBUG (zm_dprintf
 		    ("Checksum error - recvd: %x, computed: %x\n", xyz.crc1,
 		     cksum & 0xFF));
@@ -342,7 +647,7 @@ xyzModem_get_hdr (void)
 }
 
 int
-xyzModem_stream_open (connection_info_t * info, int *err)
+xyzModem_stream_open(connection_info_t * info, int *err)
 {
   int stat = 0;
   int retries = xyzModem_MAX_RETRIES;
@@ -387,6 +692,7 @@ xyzModem_stream_open (connection_info_t * info, int *err)
 	      while (*xyz.bufp++);
 	      /* get the length */
 	      parse_num ((char *) xyz.bufp, &xyz.file_length, NULL, " ");
+          PRINTF("file_len=%d\n", xyz.file_length);
 #endif
 	      /* The rest of the file name data block quietly discarded */
 	      xyz.tx_ack = true;
@@ -397,9 +703,12 @@ xyzModem_stream_open (connection_info_t * info, int *err)
 	}
       else if (stat == xyzModem_timeout)
 	{
+	    PRINTF("%s retries=%d crc_retries=%d crc_mode=%d\n", __func__, retries, crc_retries, xyz.crc_mode);
 	  if (--crc_retries <= 0)
 	    xyz.crc_mode = false;
-	  CYGACC_CALL_IF_DELAY_US (5 * 100000);	/* Extra delay for startup */
+
+      mdelay(500);
+	  //CYGACC_CALL_IF_DELAY_US (5 * 100000);	/* Extra delay for startup */
 	  CYGACC_COMM_IF_PUTC (*xyz.__chan, (xyz.crc_mode ? 'C' : NAK));
 	  xyz.total_retries++;
 	  ZM_DEBUG (zm_dprintf ("NAK (%d)\n", __LINE__));
@@ -539,7 +848,6 @@ xyzModem_stream_read (char *buf, int size, int *err)
   return total;
 }
 
-#if 1
 void
 xyzModem_stream_close (int *err)
 {
@@ -604,7 +912,8 @@ xyzModem_stream_terminate (bool abort, int (*getc) (void))
        * time to get control again after their file transfer program
        * exits.
        */
-      CYGACC_CALL_IF_DELAY_US ((cyg_int32) 250000);
+      mdelay(250); 
+      //CYGACC_CALL_IF_DELAY_US ((cyg_int32) 250000);
     }
 }
 
@@ -642,4 +951,3 @@ xyzModem_error (int err)
       break;
     }
 }
-#endif
