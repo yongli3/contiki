@@ -4,7 +4,9 @@
 #include "uart-debug.h"
 
 int (* uart1_input_handler)(unsigned char c) = NULL;
+int (* uart2_input_handler)(unsigned char c) = NULL;
 
+extern struct ringbuf rxbuf2;
 void USART1_handler() __attribute__((interrupt));
 void USART2_handler() __attribute__((interrupt));
 
@@ -57,30 +59,17 @@ void USART1_handler(void)
 void USART2_handler(void)
 {
     static unsigned char led = 1;
-    uint8_t temp = 0;
+    static uint8_t temp = 0;
 
-    printf("+%s\n", __func__);
     
     if (USART_GetITStatus(USART2, USART_IT_RXNE) != RESET) {
         temp = USART_ReceiveData(USART2);
-        printf("UART2=%x\r\n", temp);
+        //printf("UART2=%x\r\n", temp);
 
-        if (0x31 == temp) { // LEF ON
-            led = 1;            
-            GPIO_WriteBit(GPIOA, GPIO_Pin_8, Bit_RESET);
-            GPIO_WriteBit(GPIOD, GPIO_Pin_2, Bit_RESET);
-            USART_SendData(USART2, led?'1':'0');
-            while(USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET);    
+        if (NULL != uart2_input_handler) {
+            uart2_input_handler(temp);  // serial_line_input_byte
         }
-        
-        if (0x30 == temp) {// LED OFF
-            led = 0;
-            GPIO_WriteBit(GPIOA, GPIO_Pin_8, Bit_SET);
-            GPIO_WriteBit(GPIOD, GPIO_Pin_2, Bit_SET);             
-            USART_SendData(USART2, led?'1':'0');
-            while(USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET);
-        }
-        //process_post(&receive_process, event_data_ready, (void*)&counter);        
+        //process_post(&uart2_process, event_data_ready, (void*)&counter);        
     }
 }
 
@@ -156,7 +145,7 @@ void uart2_init(void)
     USART_Init(USART2, &USART_InitStructure);
     
     USART_Cmd(USART2, ENABLE);
-#if 0    
+#if 1    
     NVIC_InitTypeDef NVIC_InitStructure;
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_0);
 
@@ -215,7 +204,8 @@ int getc2_timeout(unsigned char *c, unsigned long timeout)
 {
     unsigned long now = clock_time();
     unsigned long current, delta;
-
+    int ret;
+#if 0
     while(USART_GetFlagStatus(USART2, USART_FLAG_RXNE) == RESET) {
         current = clock_time();
         delta = current - now;
@@ -227,7 +217,22 @@ int getc2_timeout(unsigned char *c, unsigned long timeout)
     *c = USART_ReceiveData(USART2) & 0xfF;
     //printf("Get %x\n", *c);
     return 1;
+#else
+    ret = ringbuf_get(&rxbuf2);
+    while (ret == -1) {
+        current = clock_time();
+        delta = current - now;
+        if (delta > timeout) {
+            printf("timeout\n");
+            return 0;
+        }
+        ret = ringbuf_get(&rxbuf2);
+    }
+    *c = ret;
+    return 1;
+#endif    
 }
+
 
 #if 1
 int fputc(int ch, FILE * f)

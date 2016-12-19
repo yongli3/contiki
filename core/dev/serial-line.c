@@ -51,9 +51,42 @@
 static struct ringbuf rxbuf;
 static uint8_t rxbuf_data[BUFSIZE];
 
+// uart2 recieved buffer
+struct ringbuf rxbuf2;
+static uint8_t rxbuf2_data[BUFSIZE];
+
 PROCESS(serial_line_process, "Serial driver");
+PROCESS(uart2_process, "Uart2 driver");
 
 process_event_t serial_line_event_message;
+process_event_t uart2_event_message;
+
+extern int (*uart2_input_handler)(unsigned char c);
+
+// called by IRQ store the received data into buf
+int uart2_input_byte(unsigned char c)
+{
+  static uint8_t overflow = 0; /* Buffer overflow: ignore until END */
+  
+  if(!overflow) {
+    /* Add character */
+    if(ringbuf_put(&rxbuf2, c) == 0) {
+      /* Buffer overflow: ignore the rest of the line */
+      overflow = 1;
+    }
+  } else {
+    printf("%s overflow!\n", __func__);
+    /* Buffer overflowed:
+     * Only (try to) add terminator characters, otherwise skip */
+    if(c == END && ringbuf_put(&rxbuf2, c) != 0) {
+      overflow = 0;
+    }
+  }
+
+  /* Wake up consumer process */
+  //process_poll(&uart2_process);
+  return 1;
+}
 
 /* called by the UART1 RX interrupt */
 /*---------------------------------------------------------------------------*/
@@ -129,11 +162,75 @@ PROCESS_THREAD(serial_line_process, ev, data)
 
   PROCESS_END();
 }
+
+PROCESS_THREAD(uart2_process, ev, data)
+{
+  static int c;
+  PROCESS_BEGIN();
+
+  uart2_event_message = process_alloc_event();
+
+  while(1) {
+    /* Fill application buffer until newline or empty */
+    c = ringbuf_get(&rxbuf2);
+    
+    if(c == -1) {
+      /* Buffer empty, wait for poll */
+      PROCESS_YIELD();
+    } else {
+        /* Broadcast event */
+        process_post(PROCESS_BROADCAST, uart2_event_message, &c);
+
+        /* Wait until all processes have handled the serial line event */
+        if(PROCESS_ERR_OK ==
+          process_post(PROCESS_CURRENT(), PROCESS_EVENT_CONTINUE, NULL)) {
+          PROCESS_WAIT_EVENT_UNTIL(ev == PROCESS_EVENT_CONTINUE);
+      }
+    }
+  }
+
+  PROCESS_END();
+}
+
+PROCESS(test_serial_process, "Serial test process");
+
+PROCESS_THREAD(test_serial_process, ev, data)
+{
+  static struct etimer et;
+
+  PROCESS_BEGIN();
+
+  etimer_set(&et, CLOCK_SECOND);
+
+  while(1) {
+    PROCESS_WAIT_EVENT();
+
+    if (etimer_expired(&et)) {
+      printf("Waiting for serial data\n");
+      etimer_restart(&et);
+    }
+
+    if(ev == uart2_event_message) {
+      printf("Message received: %x-'%c'\n", *(unsigned char*)data, *(unsigned char*)data);
+    }
+  }
+
+  PROCESS_END();
+}
+
 /*---------------------------------------------------------------------------*/
 void
 serial_line_init(void)
 {
+    // For uart1 debug
   ringbuf_init(&rxbuf, rxbuf_data, sizeof(rxbuf_data));
+
+  // for uart2
+  ringbuf_init(&rxbuf2, rxbuf2_data, sizeof(rxbuf2_data));
   process_start(&serial_line_process, NULL);
+  process_start(&uart2_process, NULL);
+
+  uart2_input_handler = uart2_input_byte;
+  //process_start(&test_serial_process, NULL);
 }
 /*---------------------------------------------------------------------------*/

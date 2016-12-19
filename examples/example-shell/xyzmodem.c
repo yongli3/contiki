@@ -323,6 +323,7 @@ StartreceiveFileNamePacket :
 	YMODEM_sendchar(C);
     //rx_char = iInByte(DELAY_1S);
     //while ((rx_char = iInByte(DELAY_1S)) < 0) {
+    
 	while (getc2_timeout(&rx_char, xyzModem_CHAR_TIMEOUT) <= 0) {
 		RetryCount++;
 		YMODEM_sendchar(C);
@@ -380,10 +381,11 @@ StartreceiveFileNamePacket :
 			ymodem_buf[buf_index++] = rx_char;
 		}
         PRINTF("PacketNumber=%d buf_index=%d\n", PacketNumber, buf_index);
+        #if 0
         for (i = 0; i < buf_index; i++) {
             PRINTF("%x[%c]\n", ymodem_buf[i], ymodem_buf[i]);
         }
-        
+        #endif
 		//if this packet is the first packet,  check packet integrity and extract filename
 		if (PacketNumber == 0 && FileName[0] == 0) {
 			if (false == xCheckPacket(1, &ymodem_buf[HEADER_LEN], MaxDataLengthInThisPacket) 
@@ -394,13 +396,14 @@ StartreceiveFileNamePacket :
 				goto StartreceiveFileNamePacket;
 			} else if (FileName[0] == 0) {
 				//no more file
+				PRINTF("no more file \n");
 				goto EXIT;
 			} else { //get filename successfully
 				//check if we can write this file, otherwise abort this transfer
 				//The argument of rb should be the directory path (ended by '\')
 				//strcpy(AbsFileName, pcArgs);
 				//strcat(AbsFileName, FileName);
-                PRINTF("fileanme=%s\n", FileName);
+                PRINTF("fileanme=%s %d\n", FileName, FileLength);
 				//fr = f_open(&fdDst, AbsFileName, FA_CREATE_ALWAYS | FA_WRITE);
 				//if (fr) {
 					//tell sender to cancel this transfer
@@ -452,7 +455,7 @@ StartreceiveFileNamePacket :
 			}
             #endif
 			ReceivedDataLength += DataLengthInPacket;
-
+            PRINTF("Recv %d-%d\n", ReceivedDataLength, DataLengthInPacket);
 			//tell sender we got packet successfully
 			YMODEM_sendchar(ACK);
 		}
@@ -468,7 +471,7 @@ EXIT:
 	//vFlushInput();
 
 	if (ErrorCode == 0) {
-		PRINTF("\n\rFile is received.\n\r");
+		PRINTF("\n\rFile is received. %d\n\r", ReceivedDataLength);
 	} else {
 		PRINTF("\n\rFailed to receive the file eror=%d\n\r", ErrorCode);
 	}
