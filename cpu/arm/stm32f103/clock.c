@@ -8,12 +8,13 @@
 static volatile clock_time_t current_clock = 0;
 static volatile unsigned long current_seconds = 0;
 static unsigned int second_countdown = CLOCK_SECOND;
+// -DMCK=72000000
 uint32_t SystemCoreClock = MCK;
 
 void
 SysTick_handler(void) __attribute__ ((interrupt));
 
-// IRQ=CLOCK_SECOND Hz
+// IRQ occurs = CLOCK_SECOND Hz
 void
 SysTick_handler(void)
 {

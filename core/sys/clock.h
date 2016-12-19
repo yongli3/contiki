@@ -131,7 +131,6 @@ void clock_wait(clock_time_t t);
  * \note Interrupts could increase the delay by a variable amount.
  */
 void clock_delay_usec(uint16_t dt);
-
 /**
  * Deprecated platform-specific routines.
  *

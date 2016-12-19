@@ -18,6 +18,13 @@
 #ifndef __STM32F10x_TYPE_H
 #define __STM32F10x_TYPE_H
 
+#undef NULL
+#if defined(__cplusplus)
+#define NULL 0
+#else
+#define NULL ((void *)0)
+#endif
+
 /* Includes ------------------------------------------------------------------*/
 /* Exported types ------------------------------------------------------------*/
 typedef signed long  s32;
@@ -39,6 +46,8 @@ typedef volatile signed char  const vsc8;   /* Read Only */
 typedef unsigned long  u32;
 typedef unsigned short u16;
 typedef unsigned char  u8;
+
+typedef unsigned long		ulong;
 
 typedef unsigned long  const uc32;  /* Read Only */
 typedef unsigned short const uc16;  /* Read Only */

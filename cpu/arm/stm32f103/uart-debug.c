@@ -210,6 +210,19 @@ int getc2(void)
     ch = USART_ReceiveData(USART2) & 0xfF;  
     return ch;
 }
+// wait for N ms
+int getc2_timeout(unsigned char *c, unsigned int timeout)
+{
+    unsigned long now = clock_time();
+
+    while(USART_GetFlagStatus(USART2, USART_FLAG_RXNE) == RESET) {
+        if ((clock_time - now) > timeout)
+            return 0;
+    }
+    
+    *c = USART_ReceiveData(USART2) & 0xfF;  
+    return 1;
+}
 
 #if 1
 int fputc(int ch, FILE * f)
