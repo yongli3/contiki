@@ -1546,7 +1546,7 @@ PRINTF("+%s flag=%x\n", __func__, flag);
       goto udp_found;
     }
   }
-  PRINTF("udp: no matching connection found\n");
+  printf("udp: no matching connection found, drop\n");
   UIP_STAT(++uip_stat.udp.drop);
 
   uip_icmp6_error_output(ICMP6_DST_UNREACH, ICMP6_DST_UNREACH_NOPORT, 0);

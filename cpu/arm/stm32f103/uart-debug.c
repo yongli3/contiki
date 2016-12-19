@@ -58,6 +58,9 @@ void USART2_handler(void)
 {
     static unsigned char led = 1;
     uint8_t temp = 0;
+
+    printf("+%s\n", __func__);
+    
     if (USART_GetITStatus(USART2, USART_IT_RXNE) != RESET) {
         temp = USART_ReceiveData(USART2);
         printf("UART2=%x\r\n", temp);
@@ -136,15 +139,15 @@ void uart2_init(void)
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-    GPIO_Init( GPIOA, &GPIO_InitStructure );
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
 
     /* Configure USART2 Tx (PA2) as alternate function push-pull */
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-    GPIO_Init( GPIOA, &GPIO_InitStructure );
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
   
-    USART_InitStructure.USART_BaudRate = 9600;
+    USART_InitStructure.USART_BaudRate = 115200;
     USART_InitStructure.USART_WordLength = USART_WordLength_8b;
     USART_InitStructure.USART_StopBits = USART_StopBits_1;
     USART_InitStructure.USART_Parity = USART_Parity_No;
@@ -153,7 +156,7 @@ void uart2_init(void)
     USART_Init(USART2, &USART_InitStructure);
     
     USART_Cmd(USART2, ENABLE);
-    
+#if 0    
     NVIC_InitTypeDef NVIC_InitStructure;
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_0);
 
@@ -163,7 +166,8 @@ void uart2_init(void)
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
 
-    USART_ITConfig(USART2, USART_IT_RXNE, ENABLE); 
+    USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);
+#endif    
 }
 
 
@@ -187,6 +191,24 @@ void led_init()
   GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
   GPIO_Init(GPIOD, &GPIO_InitStructure);
+}
+
+// send data to USART2
+void putc2(const char ch)
+{
+    USART_SendData(USART2, (uint8_t)ch);
+    while (USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET);
+    return;
+}
+
+int getc2(void)
+{
+    unsigned char ch;
+
+    while(USART_GetFlagStatus(USART2, USART_FLAG_RXNE) == RESET);
+
+    ch = USART_ReceiveData(USART2) & 0xfF;  
+    return ch;
 }
 
 #if 1

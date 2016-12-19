@@ -217,7 +217,7 @@ void USART1_handler(void)
         // echo 
         dbg_putchar(c);   
         if (NULL != uart1_input_handler) {
-          uart1_input_handler(c);        
+          uart1_input_handler(c);        // serial_line_input_byte
         }
     }
     

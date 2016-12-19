@@ -1,6 +1,7 @@
 CONTIKI_PROJECT = example-shell
 all: $(CONTIKI_PROJECT)
 
+# PROJECT_SOURCEFILES += xyzmodem.c
 PLATFORM_BUILD=1
 
 # serial-shell includes shell app too

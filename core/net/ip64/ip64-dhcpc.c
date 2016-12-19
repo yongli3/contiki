@@ -469,6 +469,7 @@ ip64_dhcpc_init(const void *mac_addr, int mac_len)
   uip_debug_ipaddr_print(&(s.conn->ripaddr));
   printf("\n");
 
+    // remote addr = 0
   conn2 = udp_new(NULL, UIP_HTONS(IP64_DHCPC_SERVER_PORT), NULL);
   if(conn2 != NULL) {
     udp_bind(conn2, UIP_HTONS(IP64_DHCPC_CLIENT_PORT));

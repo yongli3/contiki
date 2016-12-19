@@ -40,6 +40,7 @@ int main()
 {
     linkaddr_t linkaddr;
     int i;
+    unsigned char ch;
     uip_ip4addr_t ipv4addr, netmask;
 
     platform_init();
@@ -95,7 +96,15 @@ int main()
 
     shell_httpd_init();
 
-
+    // Enable uart2, add ymodem support
+    // add tstc/getc/putc functions for uart2
+#if 0 // test UART2
+    while (1) {
+        ch = getc2();
+        putc2(ch);
+    }
+ #endif  
+    //net-uart
     
     //telnetd_init();
 
