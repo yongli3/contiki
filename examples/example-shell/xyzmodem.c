@@ -23,10 +23,14 @@
  *==========================================================================
  */
 //#include <common.h>
-#include <stm32f10x_type.h>
+//#include <stm32f10x_type.h>
 #include <xyzmodem.h>
 //#include <stdarg.h>
 #include <crc.h>
+
+#include "net/ip/uip.h"
+#include "net/ip/uip-udp-packet.h"
+#include "net/ip/uiplib.h"
 
 /* Assumption - run xyzModem protocol over the console port */
 
@@ -277,6 +281,7 @@ static bool xExtractFileNameAndLength(uint8_t *buffer, uint8_t *fileName, unsign
 	return true;
 }
 
+// ymodem recieve data and send to UDP server
 void vRbCommand(char *pcArgs)
 {
     int res;
@@ -292,14 +297,28 @@ void vRbCommand(char *pcArgs)
 	unsigned char rx_char;
     int buf_index;
     unsigned int ErrorCode;
-
 	unsigned int DataSizeWritten;
+    struct uip_udp_conn *udp_conn = NULL;
+    uip_ipaddr_t remote_addr;
 
 	ErrorCode = 0;
-
     PRINTF("+%s ymodem_buffer=%x\n", __func__, ymodem_buf);
+    
+// // 0000:0000:0000:0000:0000:ffff:0aef:3506 = ::FFFF:10.239.53.6; ipv6 address converted from ipv4
+    uip_ip6addr(&remote_addr, 0, 0, 0, 0, 0, 0xffff, 0x0aef, 0x3506);
+
+    PRINTF("remote IP: ");
+    uip_debug_ipaddr_print(&remote_addr);
+    PRINTF("\n");
 
 	while (*pcArgs == ' ' && pcArgs++);
+
+    udp_conn = udp_new(NULL, UIP_HTONS(0), NULL);
+    udp_bind(udp_conn, UIP_HTONS(7777));
+
+    if(udp_conn == NULL) {
+      printf("No UDP connection available, exiting the process!\n");
+    }
 
 #if 0
 	if (*pcArgs == 0) {
@@ -447,6 +466,9 @@ StartreceiveFileNamePacket :
 				DataLengthInPacket = MaxDataLengthInThisPacket;
 
 			pbuf = ymodem_buf + HEADER_LEN;
+            PRINTF("send UDP %d\n", DataLengthInPacket);
+            uip_udp_packet_sendto(udp_conn, pbuf, DataLengthInPacket, &remote_addr,
+              UIP_HTONS(7777));
             #if 0
 			fr = f_write(fp, pbuf, DataLengthInPacket, &DataSizeWritten);
 			if (fr) {

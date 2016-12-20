@@ -429,7 +429,7 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
     break;
 
   case IP_PROTO_UDP:
-    PRINTF("ip64_6to4: UDP header\n");
+    PRINTF("ip64_6to4: UDP destport=%x srcport=%x\n", udphdr->destport, udphdr->srcport);
     v4hdr->proto = IP_PROTO_UDP;
 
     /* Check if this is a DNS request. If so, we should rewrite it
@@ -526,14 +526,14 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
 					       &newport)) {
 	udphdr->srcport = uip_htons(newport);
       }
-    } else if(uip_ntohs(udphdr->srcport) >= EPHEMERAL_PORTRANGE) {
+    } else if(uip_ntohs(udphdr->srcport) >= EPHEMERAL_PORTRANGE) {// modify the new generated IPV4 packet srcport
       m = ip64_addrmap_lookup(&v6hdr->srcipaddr,
                               uip_ntohs(udphdr->srcport),
 			      &v4hdr->destipaddr,
 			      uip_ntohs(udphdr->destport),
 			      v4hdr->proto);
       if(m == NULL) {
-	PRINTF("Lookup failed\n");
+	PRINTF("6to4 Lookup failed\n");
 	m = ip64_addrmap_create(&v6hdr->srcipaddr,
 				uip_ntohs(udphdr->srcport),
 				&v4hdr->destipaddr,
@@ -543,10 +543,10 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
 	  PRINTF("Could not create new map\n");
 	  return 0;
 	} else {
-	  PRINTF("Could create new local port %d\n", m->mapped_port);
+	  PRINTF("Could create new local port %x\n", m->mapped_port);
 	}
       } else {
-	PRINTF("Lookup: found local port %d (%d)\n", m->mapped_port,
+	PRINTF("Lookup: found local port %x (%x)\n", m->mapped_port,
 	       uip_htons(m->mapped_port));
       }
 
@@ -831,7 +831,7 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
      mapping that ensures that the local port number is retained. */
 
     if((v4hdr->proto == IP_PROTO_TCP || v4hdr->proto == IP_PROTO_UDP)) {
-      if(uip_htons(tcphdr->destport) < EPHEMERAL_PORTRANGE) {
+      if(uip_htons(tcphdr->destport) < EPHEMERAL_PORTRANGE) { // modify the destport for the nwe IPV6 packet
 	/* This packet should go to the local host. */
 	PRINTF("Port is in the non-ephemeral port range %d (%d)\n",
 	       tcphdr->destport, uip_htons(tcphdr->destport));
@@ -855,17 +855,28 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
       /* The TCP or UDP port numbers were not non-ephemeral and not
 	 special, so we map the port number according to the address
 	 mapping table. */
-
 	m = ip64_addrmap_lookup_port(uip_ntohs(udphdr->destport),
 				     v4hdr->proto);
 	if(m == NULL) {
-	  PRINTF("Inbound lookup failed\n");
-	  return 0;
+	  PRINTF("4to6 Lookup failed treat as non-ephemeral port\n");
+      ip64_addr_copy6(&v6hdr->destipaddr, &ipv6_local_address);
+        #if 0
+        //FIXME should modify the ipv6 destport
+      	m = ip64_addrmap_create(&v6hdr->srcipaddr,
+				uip_ntohs(udphdr->srcport),
+				&v4hdr->destipaddr,
+				uip_ntohs(udphdr->destport),
+				v4hdr->proto);
+      if (m == NULL) {
+        printf("Could not create new map!\n");
+	    return 0;
+      }
+     #endif 
 	} else {
-	  PRINTF("Inbound lookup did not fail\n");
+	  PRINTF("Inbound lookup did not fail\n");      
+      ip64_addr_copy6(&v6hdr->destipaddr, &m->ip6addr);
+      udphdr->destport = uip_htons(m->ip6port);
 	}
-	ip64_addr_copy6(&v6hdr->destipaddr, &m->ip6addr);
-	udphdr->destport = uip_htons(m->ip6port);
       }
     }
   }

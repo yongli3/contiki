@@ -259,11 +259,11 @@ uip_icmp6_error_output(uint8_t type, uint8_t code, uint32_t param) {
 
   UIP_STAT(++uip_stat.icmp.sent);
 
-  PRINTF("Sending ICMPv6 ERROR message type %d code %d to ", type, code);
-  PRINT6ADDR(&UIP_IP_BUF->destipaddr);
-  PRINTF(" from ");
-  PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
-  PRINTF("\n");
+  printf("Sending ICMPv6 ERROR message type %d code %d to ", type, code);
+  uip_debug_ipaddr_print(&UIP_IP_BUF->destipaddr);
+  printf(" from ");
+  uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
+  printf(" len=%d\n", uip_len);
   return;
 }
 

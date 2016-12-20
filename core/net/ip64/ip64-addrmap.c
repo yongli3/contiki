@@ -161,11 +161,14 @@ ip64_addrmap_lookup_port(uint16_t mapped_port, uint8_t protocol)
 {
   struct ip64_addrmap_entry *m;
 
+    printf("+%s %x-%x\n", __func__, mapped_port, protocol);
+
   check_age();
   for(m = list_head(entrylist); m != NULL; m = list_item_next(m)) {
     printf("mapped port %d %d, protocol %d %d\n",
 	   m->mapped_port, mapped_port,
 	   m->protocol, protocol);
+    
     if(m->mapped_port == mapped_port &&
        m->protocol == protocol) {
       m->ip4to6++;
@@ -191,6 +194,7 @@ ip64_addrmap_create(const uip_ip6addr_t *ip6addr,
 {
   struct ip64_addrmap_entry *m;
 
+    printf("+%s ip6port=%x ip4port=%x\n", __func__, ip6port, ip4port);
   check_age();
   m = memb_alloc(&entrymemb);
   if(m == NULL) {

@@ -338,6 +338,7 @@ httpd_appcall(void *state)
 void
 httpd_init(void)
 {
+    printf("+%s\n", __func__);
   tcp_listen(UIP_HTONS(80));
   memb_init(&conns);
   httpd_cgi_init();

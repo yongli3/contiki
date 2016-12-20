@@ -20,6 +20,8 @@
 
 PROCESS_NAME(udp_client_process);
 PROCESS_NAME(about_process);
+PROCESS_NAME(shell_httpd_process);
+
 ///PROCESS_NAME(dhcp_process);
 
 extern uint8_t _data[];
@@ -97,8 +99,8 @@ int main()
     //TODO test udp/tcp and telnetd/web
     //    tcp_listen
 
-    shell_httpd_init();
-
+    // start httpd as a service after DHCP ACK
+    //shell_httpd_init();
 
 #if 0 // test crc
     i = 0;
@@ -182,6 +184,7 @@ int main()
  #endif
 
     shell_rb_init();
+ 
  
     //net-uart
     

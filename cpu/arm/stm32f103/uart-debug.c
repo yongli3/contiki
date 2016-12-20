@@ -145,7 +145,7 @@ void uart2_init(void)
     USART_Init(USART2, &USART_InitStructure);
     
     USART_Cmd(USART2, ENABLE);
-#if 1    
+#if 1
     NVIC_InitTypeDef NVIC_InitStructure;
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_0);
 
@@ -199,7 +199,7 @@ int getc2(void)
     ch = USART_ReceiveData(USART2) & 0xfF;  
     return ch;
 }
-// wait for N ms
+// block read, wait for N ms
 int getc2_timeout(unsigned char *c, unsigned long timeout)
 {
     unsigned long now = clock_time();
