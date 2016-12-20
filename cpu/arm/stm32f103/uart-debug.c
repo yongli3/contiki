@@ -67,7 +67,7 @@ void USART2_handler(void)
         //printf("UART2=%x\r\n", temp);
 
         if (NULL != uart2_input_handler) {
-            uart2_input_handler(temp);  // serial_line_input_byte
+            uart2_input_handler(temp);  // uart2_input_byte;
         }
         //process_post(&uart2_process, event_data_ready, (void*)&counter);        
     }
@@ -136,7 +136,7 @@ void uart2_init(void)
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
   
-    USART_InitStructure.USART_BaudRate = 9600;
+    USART_InitStructure.USART_BaudRate = 115200 * 4;
     USART_InitStructure.USART_WordLength = USART_WordLength_8b;
     USART_InitStructure.USART_StopBits = USART_StopBits_1;
     USART_InitStructure.USART_Parity = USART_Parity_No;

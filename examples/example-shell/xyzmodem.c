@@ -42,7 +42,7 @@
 #define CTRLZ 0x1A
 #define C	0x43
 
-#define MAXRETRYCOUNT 30
+#define MAXRETRYCOUNT 10
 
 #define USE_YMODEM_LENGTH
 
@@ -328,6 +328,7 @@ StartreceiveFileNamePacket :
 		RetryCount++;
 		YMODEM_sendchar(C);
 		if (RetryCount >= MAXRETRYCOUNT) {
+            PRINTF("No data received\n");
 			ErrorCode = YMODEM_TIMEOUT;
 			goto EXIT;
 		}
@@ -336,7 +337,7 @@ StartreceiveFileNamePacket :
 	//data_buf_index = 0;
 	while (1) {
 		buf_index = 0;
-        PRINTF("filename=[%s]\n", FileName);
+        //PRINTF("filename=[%s]\n", FileName);
 		//if filename isn't null, it means we already got the first byte of first filename packet,
 		//so we don't receive the first byte again
 		if (FileName[0] != 0) {
@@ -349,16 +350,19 @@ StartreceiveFileNamePacket :
 
 		ymodem_buf[buf_index++] = rx_char;
 
-        PRINTF("rx_char=%x\n", rx_char);
+        //PRINTF("rx_char=%x\n", rx_char);
 		switch (rx_char) {
 		case EOT:
-			PacketNumber = 0;
+			PacketNumber = 0; // the END
 			//if (fp) {
 			//	f_close(fp);
 			//	fp = NULL;
 			//}
 			YMODEM_sendchar(ACK);
-			goto StartreceiveFileNamePacket;
+            PRINTF("%d Start another new file ...\n", ReceivedDataLength);
+			//goto StartreceiveFileNamePacket;
+			ErrorCode = 0;
+			goto EXIT;
 			break;
 		case SOH:
 			MaxDataLengthInThisPacket = DATA_LEN_128;
@@ -380,7 +384,7 @@ StartreceiveFileNamePacket :
 			}
 			ymodem_buf[buf_index++] = rx_char;
 		}
-        PRINTF("PacketNumber=%d buf_index=%d\n", PacketNumber, buf_index);
+        //PRINTF("PacketNumber=%d buf_index=%d\n", PacketNumber, buf_index);
         #if 0
         for (i = 0; i < buf_index; i++) {
             PRINTF("%x[%c]\n", ymodem_buf[i], ymodem_buf[i]);
@@ -455,7 +459,7 @@ StartreceiveFileNamePacket :
 			}
             #endif
 			ReceivedDataLength += DataLengthInPacket;
-            PRINTF("Recv %d-%d\n", ReceivedDataLength, DataLengthInPacket);
+            //PRINTF("Recv %d-%d\n", ReceivedDataLength, DataLengthInPacket);
 			//tell sender we got packet successfully
 			YMODEM_sendchar(ACK);
 		}
