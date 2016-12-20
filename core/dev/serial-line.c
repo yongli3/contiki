@@ -53,7 +53,7 @@ static uint8_t rxbuf_data[BUFSIZE];
 
 // uart2 recieved buffer
 struct ringbuf rxbuf2;
-static uint8_t rxbuf2_data[BUFSIZE];
+static uint8_t rxbuf2_data[BUFSIZE * 2];
 
 PROCESS(serial_line_process, "Serial driver");
 PROCESS(uart2_process, "Uart2 driver");
