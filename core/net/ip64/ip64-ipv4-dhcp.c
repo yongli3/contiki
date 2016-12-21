@@ -97,6 +97,10 @@ ip64_dhcpc_configured(const struct ip64_dhcpc_state *s)
   process_start(&shell_httpd_process, NULL);
   
   process_start(&net_uart_process, NULL);
+
+  void set_uart2_event_process(struct process *p);
+
+  set_uart2_event_process(&net_uart_process);
   
 }
 /*---------------------------------------------------------------------------*/

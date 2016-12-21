@@ -1301,7 +1301,7 @@ output(const uip_lladdr_t *localdest)
     extern struct uip_fallback_interface UIP_FALLBACK_INTERFACE;
     UIP_FALLBACK_INTERFACE.output(); // ip64_uip_fallback_interface
     return 0;
-#endif    
+#endif
 
 #define BUF ((struct uip_eth_hdr *)&uip_buf[0])
 #define IPBUF ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])

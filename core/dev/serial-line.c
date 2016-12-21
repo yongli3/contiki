@@ -53,10 +53,10 @@ static uint8_t rxbuf_data[BUFSIZE];
 
 // uart2 recieved buffer
 struct ringbuf rxbuf2;
-static uint8_t rxbuf2_data[BUFSIZE * 2];
+static uint8_t rxbuf2_data[256];
 
 PROCESS(serial_line_process, "Serial driver");
-PROCESS(uart2_process, "Uart2 driver");
+//PROCESS(uart2_process, "Uart2 driver");
 
 process_event_t serial_line_event_message;
 process_event_t uart2_event_message;
@@ -66,23 +66,14 @@ extern int (*uart2_input_handler)(unsigned char c);
 // called by IRQ store the received data into buf
 int uart2_input_byte(unsigned char c)
 {
-  static uint8_t overflow = 0; /* Buffer overflow: ignore until END */
-  
-  if(!overflow) {
-    /* Add character */
-    if(ringbuf_put(&rxbuf2, c) == 0) {
-      /* Buffer overflow: ignore the rest of the line */
-      overflow = 1;
-    }
-  } else {
-    printf("%s overflow!\n", __func__);
-    /* Buffer overflowed:
-     * Only (try to) add terminator characters, otherwise skip */
-    if(c == END && ringbuf_put(&rxbuf2, c) != 0) {
-      overflow = 0;
-    }
-  }
+  static uint8_t overflow = 0;
 
+    if(ringbuf_put(&rxbuf2, c) == 0) {
+        printf("uart2 overflow!\n");
+    }
+      // boardcast event
+    //printf("broadcast uart2 %d\n", clock_time());
+    process_post(PROCESS_BROADCAST, uart2_event_message, &rxbuf2);    
   /* Wake up consumer process */
   //process_poll(&uart2_process);
   return 1;
@@ -163,6 +154,7 @@ PROCESS_THREAD(serial_line_process, ev, data)
   PROCESS_END();
 }
 
+#if 0
 PROCESS_THREAD(uart2_process, ev, data)
 {
   static int c;
@@ -217,7 +209,7 @@ PROCESS_THREAD(test_serial_process, ev, data)
 
   PROCESS_END();
 }
-
+#endif
 /*---------------------------------------------------------------------------*/
 void
 serial_line_init(void)
@@ -226,9 +218,14 @@ serial_line_init(void)
   ringbuf_init(&rxbuf, rxbuf_data, sizeof(rxbuf_data));
 
   // for uart2
+  uart2_event_message = process_alloc_event();
+
+printf("+%s uart2_event_message=%x\n", __func__, uart2_event_message);
+
   ringbuf_init(&rxbuf2, rxbuf2_data, sizeof(rxbuf2_data));
   process_start(&serial_line_process, NULL);
-  process_start(&uart2_process, NULL);
+  //process_start(&uart2_process, NULL);
+
 
   uart2_input_handler = uart2_input_byte;
   //process_start(&test_serial_process, NULL);

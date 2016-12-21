@@ -1546,11 +1546,13 @@ PRINTF("+%s flag=%x\n", __func__, flag);
       goto udp_found;
     }
   }
+#if 0
   printf("udp: no matching connection found, drop SRCIP:");
   uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
   printf(" DESTIP:");
   uip_debug_ipaddr_print(&UIP_IP_BUF->destipaddr);
   printf(" proto=%x srcport=%x destport=%x\n", UIP_IP_BUF->proto, UIP_UDP_BUF->srcport, UIP_UDP_BUF->destport);
+#endif
   UIP_STAT(++uip_stat.udp.drop);
 
   uip_icmp6_error_output(ICMP6_DST_UNREACH, ICMP6_DST_UNREACH_NOPORT, 0);

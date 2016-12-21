@@ -7,6 +7,10 @@ int (* uart1_input_handler)(unsigned char c) = NULL;
 int (* uart2_input_handler)(unsigned char c) = NULL;
 
 extern struct ringbuf rxbuf2;
+uint8_t uart2_buf[1024];
+
+static struct process *event_process = NULL;
+
 void USART1_handler() __attribute__((interrupt));
 void USART2_handler() __attribute__((interrupt));
 
@@ -56,18 +60,34 @@ void USART1_handler(void)
     }
 }
 
+void set_uart2_event_process(struct process *p)
+{
+    event_process = p;
+}
+
 void USART2_handler(void)
 {
     static unsigned char led = 1;
     static uint8_t temp = 0;
+    static unsigned char i = 0;
 
-    
     if (USART_GetITStatus(USART2, USART_IT_RXNE) != RESET) {
         temp = USART_ReceiveData(USART2);
-        //printf("UART2=%x\r\n", temp);
-
+        i++;
+#if 0
+        // post event, but the process is too slow to read buffer
         if (NULL != uart2_input_handler) {
             uart2_input_handler(temp);  // uart2_input_byte;
+        }
+#endif   
+        if(ringbuf_put(&rxbuf2, temp) == 0) {
+            printf("uart2 overflow! %d\n", clock_time());
+        }
+        if (event_process) {
+            if (i > 200) {
+                i = 0;
+                process_poll(event_process);
+            }
         }
         //process_post(&uart2_process, event_data_ready, (void*)&counter);        
     }
@@ -136,7 +156,7 @@ void uart2_init(void)
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
   
-    USART_InitStructure.USART_BaudRate = 115200 * 8;
+    USART_InitStructure.USART_BaudRate = 115200 * 1;
     USART_InitStructure.USART_WordLength = USART_WordLength_8b;
     USART_InitStructure.USART_StopBits = USART_StopBits_1;
     USART_InitStructure.USART_Parity = USART_Parity_No;

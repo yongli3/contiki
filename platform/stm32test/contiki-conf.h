@@ -80,7 +80,7 @@ typedef uint32_t clock_time_t;
 //#define RTIMER_CLOCK_LT(a,b)     ((int16_t)((a)-(b)) < 0)
 
 // The rate of the system clock
-#define CLOCK_CONF_SECOND       1000
+#define CLOCK_CONF_SECOND       (1000)
 #define RTIMER_ARCH_SECOND              (60000)
 
 

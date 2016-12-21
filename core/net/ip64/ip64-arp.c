@@ -285,13 +285,13 @@ ip64_arp_check_cache(const uint8_t *nlhdr)
   uip_ip4addr_t broadcast_addr;
   struct arp_entry *tabptr = arp_table;
 
-  printf("check cache %d.%d.%d.%d\n",
+  PRINTF("check cache %d.%d.%d.%d\n",
 	 uip_ipaddr_to_quad(&ipv4_hdr->destipaddr));
   
   /* First check if destination is a local broadcast. */
   uip_ipaddr(&broadcast_addr, 255,255,255,255);
   if(uip_ip4addr_cmp(&ipv4_hdr->destipaddr, &broadcast_addr)) {
-    printf("Return 1\n");
+    PRINTF("Return 1\n");
     return 1;
   } else if(ipv4_hdr->destipaddr.u8[0] == 224) {
     /* Multicast. */

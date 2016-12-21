@@ -35,7 +35,7 @@ SysTick_handler(void)
 void mdelay(uint32_t ms) {
   uint32_t curTicks = current_clock;
 
-  while ((current_clock - curTicks) < ms);
+  while ((current_clock - curTicks) < ms * CLOCK_SECOND / 1000);
 }
 
 void clock_init() 
@@ -46,7 +46,7 @@ void clock_init()
     }
 }
 
-// system uptime ms 
+// system uptime 1/CLOCK_SECOND S 
 clock_time_t clock_time(void)
 {
     return current_clock;

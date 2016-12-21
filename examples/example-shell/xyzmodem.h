@@ -31,7 +31,40 @@
 #define true  1
 #define false 0
 
-#define udelay    clock_delay_usec  
+#define udelay    clock_delay_usec 
+
+#define MAXRETRYCOUNT 10
+
+#define USE_YMODEM_LENGTH
+
+
+#define SOH 0x01
+#define STX 0x02
+#define EOT 0x04
+#define ACK 0x06
+#define BSP 0x08
+#define NAK 0x15
+#define CAN 0x18
+#define EOF 0x1A	
+#define CTRLZ 0x1A
+#define C	0x43
+
+#define YMODEM_TIMEOUT			(901)
+#define YMODEM_FILEOPEN_ERROR	(902)
+#define YMODEM_RETRYFAIL		(903)
+#define YMODEM_FILEWRITE_ERROR	(904)
+
+#define PADDINGBYTE	0xEE
+#define HEADER_LEN 3
+#define DATA_LEN_1K 1024
+#define DATA_LEN_128 128
+#define CRC_LEN 2
+
+#define PACKET_LEN_1K (HEADER_LEN + DATA_LEN_1K + CRC_LEN)
+//YModem 1024 + 3 head chars + 2 crc
+#define BUFFER_SIZE (HEADER_LEN + DATA_LEN_1K + CRC_LEN)
+#define PACKET_LEN_128 (HEADER_LEN + DATA_LEN_128 + CRC_LEN)
+
 
 #define xyzModem_xmodem 1
 #define xyzModem_ymodem 2
