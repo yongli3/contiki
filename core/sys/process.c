@@ -175,7 +175,8 @@ static void
 call_process(struct process *p, process_event_t ev, process_data_t data)
 {
   int ret;
-
+//printf("[%s] %x %d\n", p == PROCESS_BROADCAST? "<broadcast>": PROCESS_NAME_STRING(p), ev, clock_time());
+    
 #if DEBUG
   if(p->state == PROCESS_STATE_CALLED) {
     PRINTF("process: process '%s' called again with event %d\n", PROCESS_NAME_STRING(p), ev);
@@ -249,7 +250,8 @@ do_event(void)
   process_data_t data;
   struct process *receiver;
   struct process *p;
-  
+
+  //printf("*E %d\n", clock_time());
   /*
    * If there are any events in the queue, take the first one and walk
    * through the list of processes to see if the event should be
@@ -333,11 +335,11 @@ process_post(struct process *p, process_event_t ev, process_data_t data)
   }
   
   if(nevents == PROCESS_CONF_NUMEVENTS) {
-#if DEBUG
+#if 1
     if(p == PROCESS_BROADCAST) {
-      PRINTF("soft panic: event queue is full when broadcast event %d was posted from %s\n", ev, PROCESS_NAME_STRING(process_current));
+      printf("soft panic: event queue is full when broadcast event %x was posted from %s\n", ev, PROCESS_NAME_STRING(process_current));
     } else {
-      PRINTF("soft panic: event queue is full when event %d was posted to %s from %s\n", ev, PROCESS_NAME_STRING(p), PROCESS_NAME_STRING(process_current));
+      printf("soft panic: event queue is full when event %x was posted to %s from %s\n", ev, PROCESS_NAME_STRING(p), PROCESS_NAME_STRING(process_current));
     }
 #endif /* DEBUG */
     return PROCESS_ERR_FULL;

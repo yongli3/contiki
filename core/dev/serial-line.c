@@ -55,6 +55,18 @@ static uint8_t rxbuf_data[BUFSIZE];
 struct ringbuf rxbuf2;
 static uint8_t rxbuf2_data[256];
 
+struct ringbuf uart2_rxbuf1;
+static uint8_t uart2_rxbuf1_data[256];
+
+struct ringbuf uart2_rxbuf2;
+static uint8_t uart2_rxbuf2_data[256];
+
+struct ringbuf uart2_rxbuf3;
+static uint8_t uart2_rxbuf3_data[256];
+
+struct ringbuf uart2_rxbuf4;
+static uint8_t uart2_rxbuf4_data[256];
+
 PROCESS(serial_line_process, "Serial driver");
 //PROCESS(uart2_process, "Uart2 driver");
 
@@ -223,6 +235,12 @@ serial_line_init(void)
 printf("+%s uart2_event_message=%x\n", __func__, uart2_event_message);
 
   ringbuf_init(&rxbuf2, rxbuf2_data, sizeof(rxbuf2_data));
+
+    ringbuf_init(&uart2_rxbuf1, uart2_rxbuf1_data, sizeof(uart2_rxbuf1_data));
+    ringbuf_init(&uart2_rxbuf2, uart2_rxbuf2_data, sizeof(uart2_rxbuf2_data));
+    ringbuf_init(&uart2_rxbuf3, uart2_rxbuf3_data, sizeof(uart2_rxbuf3_data));    
+    ringbuf_init(&uart2_rxbuf4, uart2_rxbuf4_data, sizeof(uart2_rxbuf4_data));
+
   process_start(&serial_line_process, NULL);
   //process_start(&uart2_process, NULL);
 

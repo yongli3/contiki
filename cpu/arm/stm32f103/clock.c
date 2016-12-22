@@ -44,6 +44,7 @@ void clock_init()
     {
         while (1){};
     }
+    NVIC_SetPriority(SysTick_IRQn, 0);
 }
 
 // system uptime 1/CLOCK_SECOND S 

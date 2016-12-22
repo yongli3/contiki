@@ -131,8 +131,8 @@ PROCESS(enc_watchdog_process, "Enc28j60 watchdog");
 static uint8_t initialized = 0;
 static uint8_t bank = ERXTX_BANK;
 static uint8_t enc_mac_addr[6];
-static int received_packets = 0;
-static int sent_packets = 0;
+static unsigned int received_packets = 0;
+static unsigned int sent_packets = 0;
 
 void enc28j60_arch_spi_init(void)
 {
@@ -845,21 +845,26 @@ if ((buffer[12] == 0x8) && (buffer[13] == 0)) {
 PROCESS_THREAD(enc_watchdog_process, ev, data)
 {
   static struct etimer et;
+  static unsigned int last_recv = 0;
+  static unsigned int last_sent = 0;
 
   PROCESS_BEGIN();
 
   while(1) {
-#define RESET_PERIOD (30 * CLOCK_SECOND)
+#define RESET_PERIOD (9 * CLOCK_SECOND)
     etimer_set(&et, RESET_PERIOD);
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
 
     PRINTF("enc28j60: test received_packet=%d, sent_packets=%d\n", received_packets, sent_packets);
-    if ((received_packets > 0) && (received_packets <= sent_packets)) {
-      PRINTF("enc28j60: resetting chip\n");
+    if ((received_packets == last_recv) && (sent_packets == last_sent)) {
+      printf("enc28j60: resetting chip[%d-%d, %d-%d] %d\n", 
+        received_packets, sent_packets, last_recv, last_sent, clock_time());
       reset();
     }
-    received_packets = 0;
-    sent_packets = 0;
+    last_recv = received_packets;
+    last_sent = sent_packets;
+    //received_packets = 0;
+    //sent_packets = 0;
   }
 
   PROCESS_END();

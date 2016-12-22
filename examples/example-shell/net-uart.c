@@ -87,9 +87,15 @@ static uint8_t buffer[MAX_MSG_SIZE];
 static uint8_t msg_len;
 static uip_ip6addr_t remote_addr;
 static uint8_t FileName[8];
+static struct etimer uart_et;
 
 extern uint8_t ymodem_buf[BUFFER_SIZE];
 extern uint8_t tCRC[2];
+
+extern struct ringbuf uart2_rxbuf1;
+extern struct ringbuf uart2_rxbuf2;
+extern struct ringbuf uart2_rxbuf3;
+extern struct ringbuf uart2_rxbuf4;
 
 extern struct ringbuf rxbuf2;
 process_event_t uart2_event_message;
@@ -442,8 +448,12 @@ PROCESS_THREAD(net_uart_process, ev, data)
 /////*---------------------------------------------------------------------------*/
 PROCESS_THREAD(net_uart_process, ev, data)
 {
-    int size = 0;
+    int size1 = 0;
+    int size2 = 0;
+    int size3 = 0;
+    int size4 = 0;
     int i;
+    int len = 0;
   PROCESS_BEGIN();
 
   printf("+%s\n", __func__);
@@ -461,21 +471,56 @@ PROCESS_THREAD(net_uart_process, ev, data)
     PROCESS_EXIT();
   }
 
+// FIXME RX overflow issue
+#if 0
+  In Most cases, this thread will be wakup up every 5ms, 
+  but sometimes, the thread cannot get the event, casues the uart2 RX buffer overflow!
+  *201-0
+  +uip_udp_packet_send len=201
+  ev=82 2107005 data=0
+  *202-0
+  +uip_udp_packet_send len=202
+  ev=82 2107055 data=0
+  *202-0
+  +uip_udp_packet_send len=202
+  ev=82 2107109 data=0
+  buf1 overflow! 2107155
+  ...
+  ...
+  
+  *255-255
+  +uip_udp_packet_send len=510
+  ev=82 2111171 data=0
+
+Change teh systick IRQ pro to 0, it can intrrupt the UART2 IRQ, but sometimes there are 600 ms delay
+for the etimer event to boardcast?
+#endif
+
+#if 0
   while(1) {
     PROCESS_WAIT_EVENT();
 
-    size = ringbuf_elements(&rxbuf2);
-    printf("size=%d\n", size);
-#if 1
-    if (size > 0) {
-        for (i = 0; i < size; i++) {
-            ymodem_buf[i] = ringbuf_get(&rxbuf2);
-        }
+    size1 = ringbuf_elements(&uart2_rxbuf1);
+    size2 = ringbuf_elements(&uart2_rxbuf2);    
+    printf("*%d-%d %d\n", size1, size2, clock_time());
     
-        uip_udp_packet_sendto(udp_conn, ymodem_buf, size, &remote_addr, UIP_HTONS(REMOTE_PORT));
+#if 1
+    len = 0;
+    if (size1 > 0) {
+        for (i = 0; i < size1; i++) {
+            ymodem_buf[len++] = ringbuf_get(&uart2_rxbuf1);
+        }        
+    }
+    if (size2 > 0) {
+        for (i = 0; i < size2; i++) {
+            ymodem_buf[len++] = ringbuf_get(&uart2_rxbuf2);
+        }        
+    }
+    if (len > 0) {
+        uip_udp_packet_sendto(udp_conn, ymodem_buf, len, &remote_addr, UIP_HTONS(REMOTE_PORT));
     }
 #endif
-        printf("ev=%x %d data=%x\n", ev, clock_time(), data);
+     printf("ev=%x %d data=%x\n", ev, clock_time(), data); // PROCESS_EVENT_MAX
 
     if(ev == PROCESS_EVENT_POLL) {
 
@@ -483,6 +528,54 @@ PROCESS_THREAD(net_uart_process, ev, data)
       net_input();
     }
   }
+#else
+// test rtimer
+// delay 2 ms speed = 43KB/s
+while (1) {
+    etimer_set(&uart_et, 2 * (CLOCK_SECOND / 1000));
+    PROCESS_WAIT_EVENT();
+    etimer_reset(&uart_et);
+    size1 = ringbuf_elements(&uart2_rxbuf1);
+    size2 = ringbuf_elements(&uart2_rxbuf2);
+    size3 = ringbuf_elements(&uart2_rxbuf3);
+    size4 = ringbuf_elements(&uart2_rxbuf4);
+    //printf("*%d-%d %d\n", size1, size2, clock_time());
+
+#if 1
+    len = 0;
+    if (size1 > 0) {
+        for (i = 0; i < size1; i++) {
+            ymodem_buf[len++] = ringbuf_get(&uart2_rxbuf1);
+        }        
+    }
+    if (size2 > 0) {
+        for (i = 0; i < size2; i++) {
+            ymodem_buf[len++] = ringbuf_get(&uart2_rxbuf2);
+        }        
+    }
+
+    if (size3 > 0) {
+        for (i = 0; i < size3; i++) {
+            ymodem_buf[len++] = ringbuf_get(&uart2_rxbuf3);
+        }        
+    }
+
+    if (size4 > 0) {
+        for (i = 0; i < size4; i++) {
+            ymodem_buf[len++] = ringbuf_get(&uart2_rxbuf4);
+        }        
+    }
+    
+    if (len > 0) {
+        uip_udp_packet_sendto(udp_conn, ymodem_buf, len, &remote_addr, UIP_HTONS(REMOTE_PORT));
+    }    
+    //printf("ev=%x %d data=%x\n", ev, clock_time(), data); // PROCESS_EVENT_MAX
+#endif
+
+
+}
+#endif
+  
 
   PROCESS_END();
 }

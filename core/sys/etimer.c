@@ -87,7 +87,7 @@ PROCESS_THREAD(etimer_process, ev, data)
   
   while(1) {
     PROCESS_YIELD();
-
+    //printf("etimer ev=%x %d\n", ev, clock_time());
     if(ev == PROCESS_EVENT_EXITED) {
       struct process *p = data;
 
@@ -144,6 +144,7 @@ PROCESS_THREAD(etimer_process, ev, data)
 void
 etimer_request_poll(void)
 {
+    //printf("etimer_poll %d\n", clock_time());
   process_poll(&etimer_process);
 }
 /*---------------------------------------------------------------------------*/

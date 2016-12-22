@@ -6,7 +6,13 @@
 int (* uart1_input_handler)(unsigned char c) = NULL;
 int (* uart2_input_handler)(unsigned char c) = NULL;
 
+extern struct ringbuf uart2_rxbuf1;
+extern struct ringbuf uart2_rxbuf2;
+extern struct ringbuf uart2_rxbuf3;
+extern struct ringbuf uart2_rxbuf4;
+
 extern struct ringbuf rxbuf2;
+
 uint8_t uart2_buf[1024];
 
 static struct process *event_process = NULL;
@@ -80,15 +86,23 @@ void USART2_handler(void)
             uart2_input_handler(temp);  // uart2_input_byte;
         }
 #endif   
-        if(ringbuf_put(&rxbuf2, temp) == 0) {
-            printf("uart2 overflow! %d\n", clock_time());
+        if(ringbuf_put(&uart2_rxbuf1, temp) == 0) {
+            if(ringbuf_put(&uart2_rxbuf2, temp) == 0) {
+                if(ringbuf_put(&uart2_rxbuf3, temp) == 0) {
+                    if(ringbuf_put(&uart2_rxbuf4, temp) == 0) {
+                        printf("overflow %d\n", clock_time());
+                    }
+               }
+            }
         }
+#if 0
         if (event_process) {
             if (i > 200) {
                 i = 0;
                 process_poll(event_process);
             }
         }
+#endif        
         //process_post(&uart2_process, event_data_ready, (void*)&counter);        
     }
 }
@@ -112,7 +126,7 @@ void debug_init(void)
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
     
-    USART_InitStructure.USART_BaudRate = 115200;
+    USART_InitStructure.USART_BaudRate = 115200 * 4;
     USART_InitStructure.USART_WordLength = USART_WordLength_8b;
     USART_InitStructure.USART_StopBits = USART_StopBits_1;
     USART_InitStructure.USART_Parity = USART_Parity_No;
@@ -125,10 +139,10 @@ void debug_init(void)
     
     //
     NVIC_InitTypeDef NVIC_InitStructure;
-    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_0);
+    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
     //
     NVIC_InitStructure.NVIC_IRQChannel = USART1_IRQn;
-    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0; 
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1; 
     NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
@@ -156,7 +170,7 @@ void uart2_init(void)
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
     GPIO_Init(GPIOA, &GPIO_InitStructure);
   
-    USART_InitStructure.USART_BaudRate = 115200 * 1;
+    USART_InitStructure.USART_BaudRate = 115200 * 4;
     USART_InitStructure.USART_WordLength = USART_WordLength_8b;
     USART_InitStructure.USART_StopBits = USART_StopBits_1;
     USART_InitStructure.USART_Parity = USART_Parity_No;
@@ -167,10 +181,10 @@ void uart2_init(void)
     USART_Cmd(USART2, ENABLE);
 #if 1
     NVIC_InitTypeDef NVIC_InitStructure;
-    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_0);
+    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
 
     NVIC_InitStructure.NVIC_IRQChannel = USART2_IRQn;
-    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0; 
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1; 
     NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);

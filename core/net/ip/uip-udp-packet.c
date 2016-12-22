@@ -50,7 +50,7 @@ extern uint16_t uip_slen;
 void
 uip_udp_packet_send(struct uip_udp_conn *c, const void *data, int len)
 {
-  printf("+%s len=%d\n", __func__, len);
+  //printf("len=%d %d\n", len, clock_time());
 #if UIP_UDP
   if(data != NULL && len <= (UIP_BUFSIZE - (UIP_LLH_LEN + UIP_IPUDPH_LEN))) {
     uip_udp_conn = c;

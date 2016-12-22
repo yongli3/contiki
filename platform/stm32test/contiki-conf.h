@@ -79,8 +79,8 @@ typedef uint32_t clock_time_t;
 //typedef uint16_t rtimer_clock_t;
 //#define RTIMER_CLOCK_LT(a,b)     ((int16_t)((a)-(b)) < 0)
 
-// The rate of the system clock
-#define CLOCK_CONF_SECOND       (1000)
+// The rate of the system clock Hz
+#define CLOCK_CONF_SECOND       (10000)
 #define RTIMER_ARCH_SECOND              (60000)
 
 
@@ -210,7 +210,7 @@ typedef uint32_t clock_time_t;
 
 #define WITH_ASCII 1
 
-#define PROCESS_CONF_NUMEVENTS 8
+#define PROCESS_CONF_NUMEVENTS 32
 #define PROCESS_CONF_STATS 1
 /*#define PROCESS_CONF_FASTPOLL    4*/
 
