@@ -532,7 +532,7 @@ for the etimer event to boardcast?
 // test rtimer
 // delay 2 ms speed = 43KB/s
 while (1) {
-    etimer_set(&uart_et, 2 * (CLOCK_SECOND / 1000));
+    etimer_set(&uart_et, 2);
     PROCESS_WAIT_EVENT();
     etimer_reset(&uart_et);
     size1 = ringbuf_elements(&uart2_rxbuf1);
