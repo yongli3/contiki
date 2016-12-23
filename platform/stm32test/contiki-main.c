@@ -21,6 +21,8 @@
 PROCESS_NAME(udp_client_process);
 PROCESS_NAME(about_process);
 PROCESS_NAME(shell_httpd_process);
+PROCESS_NAME(test_etimer_process);
+PROCESS_NAME(tcp_process);
 
 ///PROCESS_NAME(dhcp_process);
 
@@ -78,9 +80,9 @@ int main()
     GPIO_ResetBits(GPIOA,GPIO_Pin_8);
     GPIO_ResetBits(GPIOD,GPIO_Pin_2);
 
-	process_init();
-	process_start(&etimer_process, NULL);
-
+    process_init();
+    process_start(&etimer_process, NULL);
+    ctimer_init();
 
     //cc2520_init();
 
@@ -184,7 +186,9 @@ int main()
  #endif
 
     shell_rb_init();
- 
+
+ // testsys
+ //process_start(&test_etimer_process, NULL);
  
     //net-uart
     
@@ -196,7 +200,7 @@ int main()
     //shell_blink_init();
     //shell_vars_init();
 
-	ctimer_init();
+	//ctimer_init();
 
 #if NETSTACK_CONF_WITH_IPV6 
     // set MAC address linkaddr_node_addr
@@ -308,9 +312,11 @@ for(i = 0; i < UIP_DS6_ADDR_NB; i++) {
     ip64_init();
     
 #if 1
+    // FIXME should set the local IP after DHCP configuration
     uip_ipaddr(&ipv4addr, 0, 0, 0, 0);
     uip_ipaddr(&netmask, 255, 255, 255, 0);
     ip64_set_ipv4_address(&ipv4addr, &netmask);
+    //ip64_set_ipv6_address
 #endif
 
     //process_start(&dhcp_process, NULL);

@@ -91,7 +91,7 @@
 /* For Debug, logging, statistics                                            */
 /*---------------------------------------------------------------------------*/
 
-#define DEBUG DEBUG_NONE
+#define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
 #if UIP_LOGGING == 1
@@ -944,6 +944,8 @@ ext_hdr_options_process(void)
 void
 uip_process(uint8_t flag)
 {
+    uip_ipaddr_t *dst_ip = NULL;
+
 #if UIP_TCP
   int c;
     int i;
@@ -1161,6 +1163,7 @@ PRINTF("+%s flag=%x\n", __func__, flag);
   }
 
 #if UIP_CONF_ROUTER
+not used!
   /*
    * Next header field processing. In IPv6, we can have extension headers,
    * if present, the Hop-by-Hop Option must be processed before forwarding
@@ -1264,7 +1267,9 @@ PRINTF("+%s flag=%x\n", __func__, flag);
   if(!uip_ds6_is_my_addr(&UIP_IP_BUF->destipaddr) &&
      !uip_ds6_is_my_maddr(&UIP_IP_BUF->destipaddr) &&
      !uip_is_addr_mcast(&UIP_IP_BUF->destipaddr)) {
-    PRINTF("Dropping packet, not for me\n");
+    printf("Dropping packet, not for me destip=");
+    PRINT6ADDR(&UIP_IP_BUF->destipaddr);
+    printf("\n");
     UIP_STAT(++uip_stat.ip.drop);
     goto drop;
   }
@@ -1598,6 +1603,12 @@ PRINTF("+%s flag=%x\n", __func__, flag);
   // uip_ip_hdr
   uip_ipaddr_copy(&UIP_IP_BUF->destipaddr, &uip_udp_conn->ripaddr);
   uip_ds6_select_src(&UIP_IP_BUF->srcipaddr, &UIP_IP_BUF->destipaddr);
+
+  PRINTF("Sending UDP packet to ");
+  PRINT6ADDR(&UIP_IP_BUF->destipaddr);
+  PRINTF(" from ");
+  PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
+  PRINTF("\n");
 
   uip_appdata = &uip_buf[UIP_LLH_LEN + UIP_IPTCPH_LEN];// 14 + 20 + 40
 
@@ -2293,7 +2304,30 @@ PRINTF("+%s flag=%x\n", __func__, flag);
   UIP_TCP_BUF->destport = uip_connr->rport;
 
   uip_ipaddr_copy(&UIP_IP_BUF->destipaddr, &uip_connr->ripaddr);
-  uip_ds6_select_src(&UIP_IP_BUF->srcipaddr, &UIP_IP_BUF->destipaddr);
+  // FIXME for TCP cehck if it is ipv6-ipv4 format:
+  //uip_ds6_select_src(&UIP_IP_BUF->srcipaddr, &UIP_IP_BUF->destipaddr);
+  // if destip is ipv4-ipv6 format, just set the src to local ipv4 address
+  dst_ip = &UIP_IP_BUF->destipaddr;
+  if (dst_ip->u8[0] == 0 &&
+       dst_ip->u8[1] == 0 &&
+       dst_ip->u8[2] == 0 &&
+       dst_ip->u8[3] == 0 &&
+       dst_ip->u8[4] == 0 &&
+       dst_ip->u8[5] == 0 &&
+       dst_ip->u8[6] == 0 &&
+       dst_ip->u8[7] == 0 &&
+       dst_ip->u8[8] == 0 &&
+       dst_ip->u8[9] == 0 &&
+       dst_ip->u8[10] == 0xff &&
+       dst_ip->u8[11] == 0xff) {
+      printf("IPV4-ipv6 use load ipv6-ipv4 address ");
+      PRINT6ADDR(ip64_get_host6addr());
+      printf("\n");
+      ip64_addr_copy6(&UIP_IP_BUF->srcipaddr, ip64_get_host6addr());
+  } else {
+        uip_ds6_select_src(&UIP_IP_BUF->srcipaddr, &UIP_IP_BUF->destipaddr);
+  }
+
   PRINTF("Sending TCP packet to ");
   PRINT6ADDR(&UIP_IP_BUF->destipaddr);
   PRINTF(" from ");

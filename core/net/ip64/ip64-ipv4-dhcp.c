@@ -44,6 +44,7 @@
 
 PROCESS_NAME(shell_httpd_process);
 PROCESS_NAME(net_uart_process);
+PROCESS_NAME(tcp_process);
 
 PROCESS(ip64_ipv4_dhcp_process, "IPv4 DHCP");
 
@@ -84,23 +85,34 @@ void
 ip64_dhcpc_configured(const struct ip64_dhcpc_state *s)
 {
   uip_ip6addr_t ip6dnsaddr;
+  uip_ip6addr_t local_ipv6_addr;
   printf("DHCP Configured with %d.%d.%d.%d\n",
 	 s->ipaddr.u8[0], s->ipaddr.u8[1],
 	 s->ipaddr.u8[2], s->ipaddr.u8[3]);
 
-  ip64_set_hostaddr((uip_ip4addr_t *)&s->ipaddr);
-  ip64_set_netmask((uip_ip4addr_t *)&s->netmask);
+    // set local IPV4 and IPV6 address
+  //ip64_set_hostaddr((uip_ip4addr_t *)&s->ipaddr);
+  //ip64_set_netmask((uip_ip4addr_t *)&s->netmask);
+  ip64_set_ipv4_address((uip_ip4addr_t *)&s->ipaddr, (uip_ip4addr_t *)&s->netmask);
+
+  //FIXME CANNOT re-set the local ipv6 address since DS issue ipv6_local_address
+  //ip64_addr_4to6((uip_ip4addr_t *)&s->ipaddr, &local_ipv6_addr);
+  //ip64_set_ipv6_address(&local_ipv6_addr);
+        
   ip64_set_draddr((uip_ip4addr_t *)&s->default_router);
   ip64_addr_4to6((uip_ip4addr_t *)&s->dnsaddr, &ip6dnsaddr);
+  
   //  mdns_conf(&ip6dnsaddr);
   // start httpd after get IP address FIXME needs to check dhcp expire event
   process_start(&shell_httpd_process, NULL);
   
   process_start(&net_uart_process, NULL);
 
-  void set_uart2_event_process(struct process *p);
+  extern void set_uart2_event_process(struct process *p);
 
   set_uart2_event_process(&net_uart_process);
+  
+  process_start(&tcp_process, NULL);
   
 }
 /*---------------------------------------------------------------------------*/

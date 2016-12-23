@@ -507,6 +507,7 @@ uip_ds6_select_src(uip_ipaddr_t *src, uip_ipaddr_t *dst)
   uint8_t best = 0;             /* number of bit in common with best match */
   uint8_t n = 0;
   uip_ds6_addr_t *matchaddr = NULL;
+  uip_ip6addr_t *local_ipv6_addr = NULL;
 
   if(!uip_is_addr_linklocal(dst) && !uip_is_addr_mcast(dst)) {
     /* find longest match */
@@ -532,7 +533,32 @@ uip_ds6_select_src(uip_ipaddr_t *src, uip_ipaddr_t *dst)
 
   /* use the :: (unspecified address) as source if no match found */
   if(matchaddr == NULL) {
+    #if 0
+    // if destip is ipv4-ipv6 format, just set the src to local ipv4 address
+    if (dst->u8[0] == 0 &&
+         dst->u8[1] == 0 &&
+         dst->u8[2] == 0 &&
+         dst->u8[3] == 0 &&
+         dst->u8[4] == 0 &&
+         dst->u8[5] == 0 &&
+         dst->u8[6] == 0 &&
+         dst->u8[7] == 0 &&
+         dst->u8[8] == 0 &&
+         dst->u8[9] == 0 &&
+         dst->u8[10] == 0xff &&
+         dst->u8[11] == 0xff) {
+         local_ipv6_addr = ip64_get_host6addr(); 
+        printf("IPV4-ipv6 use load ipv6-ipv4 address ");
+        PRINT6ADDR(local_ipv6_addr);
+        printf("\n");
+        ip64_addr_copy6(src, local_ipv6_addr);
+    } else {
+        uip_create_unspecified(src);
+    }
+    #else
+    printf("-%s NULL\n", __func__);
     uip_create_unspecified(src);
+    #endif
   } else {
     uip_ipaddr_copy(src, &matchaddr->ipaddr);
   }

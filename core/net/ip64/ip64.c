@@ -64,7 +64,7 @@
 #include "ip64-ipv4-dhcp.h"
 #include "contiki-net.h"
 
-#define DEBUG DEBUG_NONE
+#define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
 #include <string.h> /* for memcpy() */
@@ -168,6 +168,8 @@ static uip_ip4addr_t ipv4_broadcast_addr;
 
 #define DNS_PORT 53
 
+#define PRINT6ADDRRAW(addr) PRINTF(" %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ", ((uint8_t *)addr)[0], ((uint8_t *)addr)[1], ((uint8_t *)addr)[2], ((uint8_t *)addr)[3], ((uint8_t *)addr)[4], ((uint8_t *)addr)[5], ((uint8_t *)addr)[6], ((uint8_t *)addr)[7], ((uint8_t *)addr)[8], ((uint8_t *)addr)[9], ((uint8_t *)addr)[10], ((uint8_t *)addr)[11], ((uint8_t *)addr)[12], ((uint8_t *)addr)[13], ((uint8_t *)addr)[14], ((uint8_t *)addr)[15])
+
 /*---------------------------------------------------------------------------*/
 void
 ip64_init(void)
@@ -235,13 +237,19 @@ ip64_get_draddr(void)
   return &ip64_draddr;
 }
 /*---------------------------------------------------------------------------*/
+const uip_ip6addr_t *
+ip64_get_host6addr(void)
+{
+  return &ipv6_local_address;
+}
+/*---------------------------------------------------------------------------*/
 void
 ip64_set_ipv4_address(const uip_ip4addr_t *addr, const uip_ip4addr_t *netmask)
 {
   ip64_set_hostaddr(addr);
   ip64_set_netmask(netmask);
 
-  PRINTF("ip64_set_ipv4_address: configuring address %d.%d.%d.%d/%d.%d.%d.%d\n",
+  printf("%s: configuring address %d.%d.%d.%d/%d.%d.%d.%d\n", __func__,
 	 ip64_hostaddr.u8[0], ip64_hostaddr.u8[1],
 	 ip64_hostaddr.u8[2], ip64_hostaddr.u8[3],
 	 ip64_netmask.u8[0], ip64_netmask.u8[1],
@@ -254,7 +262,7 @@ ip64_set_ipv6_address(const uip_ip6addr_t *addr)
   ip64_addr_copy6(&ipv6_local_address, (const uip_ip6addr_t *)addr);
   ipv6_local_address_configured = 1;
 #if DEBUG
-  PRINTF("ip64_set_ipv6_address: configuring address ");
+  PRINTF("%s: configuring address ", __func__);
   PRINT6ADDR(addr);
   PRINTF("\n");
 #endif /* DEBUG */
@@ -365,6 +373,12 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
 
   v6hdr = (struct ipv6_hdr *)ipv6packet;
   v4hdr = (struct ipv4_hdr *)resultpacket;
+
+  PRINTF("+%s len=%d ip6src=", __func__, ipv6packet_len);
+  PRINT6ADDRRAW(&v6hdr->srcipaddr);
+  PRINTF(" ip6dest=");
+  PRINT6ADDRRAW(&v6hdr->destipaddr);
+  PRINTF("\n");
 
   if((v6hdr->len[0] << 8) + v6hdr->len[1] <= ipv6packet_len) {
     ipv6len = (v6hdr->len[0] << 8) + v6hdr->len[1] + IPV6_HDRLEN;
@@ -498,7 +512,7 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
      ip64_set_ipv4_address() function. Only let broadcasts through. */
   if(!ip64_hostaddr_configured &&
      !uip_ip4addr_cmp(&v4hdr->destipaddr, &ipv4_broadcast_addr)) {
-    PRINTF("ip64_6to4: no IPv4 address configured.\n");
+    printf("ip64_6to4: no IPv4 address configured.\n");
     return 0;
   }
   ip64_addr_copy4(&v4hdr->srcipaddr, &ip64_hostaddr);
@@ -518,7 +532,6 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
   /* We check to see if we already have an existing IP address mapping
      for this connection. If not, we create a new one. */
   if((v4hdr->proto == IP_PROTO_UDP || v4hdr->proto == IP_PROTO_TCP)) {
-
     if(ip64_special_ports_outgoing_is_special(uip_ntohs(udphdr->srcport))) {
       uint16_t newport;
       if(ip64_special_ports_translate_outgoing(uip_ntohs(udphdr->srcport),
@@ -526,27 +539,28 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
 					       &newport)) {
 	udphdr->srcport = uip_htons(newport);
       }
-    } else if(uip_ntohs(udphdr->srcport) >= EPHEMERAL_PORTRANGE) {// modify the new generated IPV4 packet srcport
+    } else if(uip_ntohs(udphdr->srcport) >= EPHEMERAL_PORTRANGE) {
+        //6to4 should be output packet(maybe the first one), modify the new generated IPV4 packet srcport, for send out
       m = ip64_addrmap_lookup(&v6hdr->srcipaddr,
                               uip_ntohs(udphdr->srcport),
 			      &v4hdr->destipaddr,
 			      uip_ntohs(udphdr->destport),
 			      v4hdr->proto);
       if(m == NULL) {
-	PRINTF("6to4 Lookup failed\n");
+	PRINTF("6to4 Lookup srcport %x failed\n", udphdr->srcport);
 	m = ip64_addrmap_create(&v6hdr->srcipaddr,
 				uip_ntohs(udphdr->srcport),
 				&v4hdr->destipaddr,
 				uip_ntohs(udphdr->destport),
 				v4hdr->proto);
 	if(m == NULL) {
-	  PRINTF("Could not create new map\n");
+	  printf(" Could not create new map\n");
 	  return 0;
 	} else {
-	  PRINTF("Could create new local port %x\n", m->mapped_port);
+	  PRINTF(" Could create new local port %x\n", m->mapped_port);
 	}
       } else {
-	PRINTF("Lookup: found local port %x (%x)\n", m->mapped_port,
+	PRINTF("6to4Lookup: found local port mapped=%x (%x)\n", m->mapped_port,
 	       uip_htons(m->mapped_port));
       }
 
@@ -639,7 +653,9 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
   }
 
   /* Finally, we return the length of the resulting IPv4 packet. */
-  PRINTF("-%s: ipv4len=%d\n", __func__, ipv4len);
+  PRINTF("-%s: ipv4len=%d srcip=%d.%d.%d.%d destip=%d.%d.%d.%d\n", __func__, ipv4len, 
+  v4hdr->srcipaddr.u8[0], v4hdr->srcipaddr.u8[1], v4hdr->srcipaddr.u8[2], v4hdr->srcipaddr.u8[3], 
+  v4hdr->destipaddr.u8[0], v4hdr->destipaddr.u8[1], v4hdr->destipaddr.u8[2], v4hdr->destipaddr.u8[3]);
   return ipv4len;
 }
 /*---------------------------------------------------------------------------*/
@@ -660,15 +676,15 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
   v6hdr = (struct ipv6_hdr *)resultpacket;
   v4hdr = (struct ipv4_hdr *)ipv4packet;
 
-  PRINTF("+%s ipv4len=%d result=%x ", __func__, ipv4packet_len, resultpacket);
+  PRINTF("+%s proto=%x ipv4len=%d result=%x ", __func__, v4hdr->proto, ipv4packet_len, resultpacket);
 
 // dump ipv4 packet
-  PRINTF(" srcip=%d.%d.%d.%d destip=%d.%d.%d.%d\n", v4hdr->srcipaddr.u8[0], v4hdr->srcipaddr.u8[1],
+  PRINTF(" srcip=%d.%d.%d.%d destip=%d.%d.%d.%d ", v4hdr->srcipaddr.u8[0], v4hdr->srcipaddr.u8[1],
     v4hdr->srcipaddr.u8[2], v4hdr->srcipaddr.u8[3], v4hdr->destipaddr.u8[0], v4hdr->destipaddr.u8[1],
     v4hdr->destipaddr.u8[2], v4hdr->destipaddr.u8[3]);
 
-  PRINTF("vhl=%x tos=%x len=%x-%x ttl=%x proto=%x ipchksum=%02x ", 
-    v4hdr->vhl, v4hdr->tos, v4hdr->len[0], v4hdr->len[1], v4hdr->ttl, v4hdr->proto, v4hdr->ipchksum);
+  PRINTF("vhl=%x tos=%x len=%x-%x ttl=%x ipchksum=%02x ", 
+    v4hdr->vhl, v4hdr->tos, v4hdr->len[0], v4hdr->len[1], v4hdr->ttl, v4hdr->ipchksum);
 
   for (i = 0; i < ipv4packet_len; i++) {
     if (0 == (i % 16))
@@ -681,19 +697,19 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
   if((v4hdr->len[0] << 8) + v4hdr->len[1] <= ipv4packet_len) {
     ipv4len = (v4hdr->len[0] << 8) + v4hdr->len[1];
   } else {
-    PRINTF("ip64_4to6: packet smaller than reported in IPv4 header, dropping\n");
+    printf("ip64_4to6: packet smaller than reported in IPv4 header, dropping\n");
     return 0;
   }
 
   if(ipv4len <= IPV4_HDRLEN) {
-    PRINTF("ipv4len too small!\n");
+    printf("ipv4len too small!\n");
     return 0;
   }
 
   /* Make sure that the resulting packet fits in the ip64 packet
      buffer. If not, we drop it. */
   if(ipv4len - IPV4_HDRLEN + IPV6_HDRLEN > BUFSIZE) {
-    PRINTF("ip64_4to6: packet too big to fit in buffer, dropping\n");
+    printf("ip64_4to6: packet too big to fit in buffer, dropping\n");
     return 0;
   }
   /* We copy the data from the IPv4 packet into the IPv6 packet. */
@@ -735,7 +751,7 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
      tuple. If not, we'll return 0 to indicate that we failed to
      translate the packet. */
   if(ip64_addr_4to6(&v4hdr->srcipaddr, &v6hdr->srcipaddr) == 0) {
-    PRINTF("ip64_packet_4to6: failed to convert source IP address\n");
+    printf("ip64_packet_4to6: failed to convert source IP address\n");
     return 0;
   }
 
@@ -766,7 +782,7 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
     break;
 
   case IP_PROTO_ICMPV4:
-    /* Allow only ICMPv4 ECHO_REQUESTS (ping packets) through to the
+    /* Allow ICMPv4 ECHO_REQUESTS (ping packets) through to the
        local IPv6 host. */
     if(icmpv4hdr->type == ICMP_ECHO) {
       PRINTF("ip64_4to6: translating ICMPv4 ECHO packet\n");
@@ -779,7 +795,7 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
       ip64_addr_copy6(&v6hdr->destipaddr, &ipv6_local_address);       
     } 
     else {
-      PRINTF("ip64_packet_4to6: ICMPv4 packet type %d not supported\n",
+      printf("ip64_packet_4to6: ICMPv4 packet type %d not supported\n",
 	     icmpv4hdr->type);
       return 0;
     }
@@ -789,7 +805,7 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
     /* For protocol types that we do not support, we return 0 to
        indicate that we failed to translate the packet to an IPv6
        packet. */
-    PRINTF("ip64_packet_4to6: protocol type %d not supported\n",
+    printf("ip64_packet_4to6: protocol type %d not supported\n",
 	   v4hdr->proto);
     return 0;
   }
@@ -806,12 +822,12 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
   } else {
 
     if(!ip64_hostaddr_configured) {
-      PRINTF("ip64_4to6: no local IPv4 address configured, dropping incoming packet.\n");
+      printf("ip64_4to6: no local IPv4 address configured, dropping incoming packet.\n");
       return 0;
     }
 
     if(!uip_ip4addr_cmp(&v4hdr->destipaddr, &ip64_hostaddr)) {
-      PRINTF("ip64_4to6: the IPv4 destination address %d.%d.%d.%d did not match our IPv4 address %d.%d.%d.%d\n",
+      printf("ip64_4to6: the IPv4 destination address %d.%d.%d.%d did not match our IPv4 address %d.%d.%d.%d\n",
 	     uip_ipaddr_to_quad(&v4hdr->destipaddr),
 	     uip_ipaddr_to_quad(&ip64_hostaddr));
       return 0;
@@ -855,6 +871,17 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
       /* The TCP or UDP port numbers were not non-ephemeral and not
 	 special, so we map the port number according to the address
 	 mapping table. */
+	 // 4to6 should be incoming packet, maybe the first one, destport= device localport
+	 if (v4hdr->proto == IP_PROTO_TCP) {
+        PRINTF("4to6 tcp\n");
+       for (i = 0; i < ipv6len; i++) {
+        if (0 == (i % 16))
+              PRINTF("\n");
+          
+          PRINTF("%02x ", resultpacket[i]);
+      }
+      PRINTF("\n");
+     }
 	m = ip64_addrmap_lookup_port(uip_ntohs(udphdr->destport),
 				     v4hdr->proto);
 	if(m == NULL) {
@@ -873,7 +900,11 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
       }
      #endif 
 	} else {
-	  PRINTF("Inbound lookup did not fail\n");      
+	  PRINTF("Inbound lookup did not fail newdestport=%x olddestport=%x newdestip=", m->ip6port, udphdr->destport);
+      PRINT6ADDRRAW(&m->ip6addr);  
+      PRINTF(" olddestip=");
+    PRINT6ADDRRAW(&v6hdr->destipaddr); 
+    PRINTF("\n");
       ip64_addr_copy6(&v6hdr->destipaddr, &m->ip6addr);
       udphdr->destport = uip_htons(m->ip6port);
 	}
@@ -912,12 +943,11 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
     return 0;
   }
 
-  #define PRINT6ADDRRAW(addr) PRINTF(" %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ", ((uint8_t *)addr)[0], ((uint8_t *)addr)[1], ((uint8_t *)addr)[2], ((uint8_t *)addr)[3], ((uint8_t *)addr)[4], ((uint8_t *)addr)[5], ((uint8_t *)addr)[6], ((uint8_t *)addr)[7], ((uint8_t *)addr)[8], ((uint8_t *)addr)[9], ((uint8_t *)addr)[10], ((uint8_t *)addr)[11], ((uint8_t *)addr)[12], ((uint8_t *)addr)[13], ((uint8_t *)addr)[14], ((uint8_t *)addr)[15])
-
 // 0000:0000:0000:0000:0000:ffff:0aef:3506 = ::FFFF:10.239.53.6; ipv6 address converted from ipv4
+    PRINTF("srcip= ");
     PRINT6ADDRRAW(&v6hdr->srcipaddr);
   /* Finally, we return the length of the resulting IPv6 packet. */
-  PRINTF("\nip64_4to6: ipv6len=%d srcipaddr=", ipv6len);
+  PRINTF("\n-ip64_4to6: ipv6len=%d srcipaddr=", ipv6len);
 
     //dump ipv6 packet
 
@@ -925,7 +955,7 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
     PRINTF(" destipaddr=");
     PRINT6ADDR(&v6hdr->destipaddr);
     
-    PRINTF("\nvtc=%x tcflow=%x flow=%x len=%x-%x nxthdr=%x hoplim=%x", 
+    PRINTF(" vtc=%x tcflow=%x flow=%x len=%x-%x nxthdr=%x hoplim=%x", 
       v6hdr->vtc, v6hdr->tcflow, v6hdr->flow, v6hdr->len[0], v6hdr->len[1], v6hdr->nxthdr, v6hdr->hoplim);
     
     for (i = 0; i < ipv6len; i++) {

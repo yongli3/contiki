@@ -53,7 +53,8 @@ LIST(entrylist);
 #define LAST_MAPPED_PORT  20000
 static uint16_t mapped_port = FIRST_MAPPED_PORT;
 
-#define printf(...)
+//#define printf(...)
+#define PRINT6ADDRRAW(addr) printf(" %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ", ((uint8_t *)addr)[0], ((uint8_t *)addr)[1], ((uint8_t *)addr)[2], ((uint8_t *)addr)[3], ((uint8_t *)addr)[4], ((uint8_t *)addr)[5], ((uint8_t *)addr)[6], ((uint8_t *)addr)[7], ((uint8_t *)addr)[8], ((uint8_t *)addr)[9], ((uint8_t *)addr)[10], ((uint8_t *)addr)[11], ((uint8_t *)addr)[12], ((uint8_t *)addr)[13], ((uint8_t *)addr)[14], ((uint8_t *)addr)[15])
 
 /*---------------------------------------------------------------------------*/
 struct ip64_addrmap_entry *
@@ -125,6 +126,7 @@ recycle(void)
   return 0;
 }
 /*---------------------------------------------------------------------------*/
+// used by 6to4
 struct ip64_addrmap_entry *
 ip64_addrmap_lookup(const uip_ip6addr_t *ip6addr,
 		    uint16_t ip6port,
@@ -134,8 +136,11 @@ ip64_addrmap_lookup(const uip_ip6addr_t *ip6addr,
 {
   struct ip64_addrmap_entry *m;
 
-  printf("lookup ip4port %d ip6port %d\n", uip_htons(ip4port),
-	 uip_htons(ip6port));
+  printf("+%s proto=%x ip6port=%x ip4port=%x ip4=%d.%d.%d.%d ip6=", 
+      __func__, protocol, ip6port, ip4port, ip4addr->u8[0], ip4addr->u8[1], ip4addr->u8[2], ip4addr->u8[3]);
+  PRINT6ADDRRAW(ip6addr);
+  printf("\n");
+  
   check_age();
   for(m = list_head(entrylist); m != NULL; m = list_item_next(m)) {
     printf("protocol %d %d, ip4port %d %d, ip6port %d %d, ip4 %d ip6 %d\n",
@@ -156,6 +161,7 @@ ip64_addrmap_lookup(const uip_ip6addr_t *ip6addr,
   return NULL;
 }
 /*---------------------------------------------------------------------------*/
+// used by 4to6
 struct ip64_addrmap_entry *
 ip64_addrmap_lookup_port(uint16_t mapped_port, uint8_t protocol)
 {
@@ -185,6 +191,7 @@ increase_mapped_port(void)
     FIRST_MAPPED_PORT;
 }
 /*---------------------------------------------------------------------------*/
+// used by 6to4 generated a mapped port
 struct ip64_addrmap_entry *
 ip64_addrmap_create(const uip_ip6addr_t *ip6addr,
 		    uint16_t ip6port,
@@ -194,7 +201,10 @@ ip64_addrmap_create(const uip_ip6addr_t *ip6addr,
 {
   struct ip64_addrmap_entry *m;
 
-    printf("+%s ip6port=%x ip4port=%x\n", __func__, ip6port, ip4port);
+    printf("+%s proto=%x ip6port=%x ip4port=%x ip4=%d.%d.%d.%d ip6= ", 
+        __func__, protocol, ip6port, ip4port, ip4addr->u8[0], ip4addr->u8[1], ip4addr->u8[2], ip4addr->u8[3]);
+    PRINT6ADDRRAW(ip6addr);
+    printf("\n");
   check_age();
   m = memb_alloc(&entrymemb);
   if(m == NULL) {

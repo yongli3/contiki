@@ -41,7 +41,7 @@
 
 #define UIP_IP_BUF        ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 
-#define DEBUG DEBUG_NONE
+#define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 //#define printf(...)
 /*---------------------------------------------------------------------------*/
@@ -74,7 +74,7 @@ PRINTF("+%s len=%d type=0x%x\n", __func__, len, ethhdr->type);
       PRINTF("\n");
 
       tcpip_input();
-      PRINTF("Done %d\n", len);
+      PRINTF("-%s Done %d\n", __func__, len);
     }
   }
 }

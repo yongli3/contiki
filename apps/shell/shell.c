@@ -73,7 +73,7 @@ static struct process *front_process;
 
 static unsigned long time_offset;
 
-PROCESS(shell_process, "Shell");
+PROCESS(shell_process, "Shell process");
 PROCESS(shell_server_process, "Shell server");
 /*---------------------------------------------------------------------------*/
 PROCESS(help_command_process, "help");

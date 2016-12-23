@@ -47,6 +47,7 @@ void ip64_set_ipv6_address(const uip_ip6addr_t *ipv6addr);
 const uip_ip4addr_t *ip64_get_hostaddr(void);
 const uip_ip4addr_t *ip64_get_netmask(void);
 const uip_ip4addr_t *ip64_get_draddr(void);
+const uip_ip6addr_t *ip64_get_host6addr(void);
 
 void ip64_set_hostaddr(const uip_ip4addr_t *hostaddr);
 void ip64_set_netmask(const uip_ip4addr_t *netmask);

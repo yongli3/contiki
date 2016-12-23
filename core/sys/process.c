@@ -114,7 +114,7 @@ process_start(struct process *p, process_data_t data)
   p->state = PROCESS_STATE_RUNNING;
   PT_INIT(&p->pt);
 
-  PRINTF("process: starting '%s' data=%X\n", PROCESS_NAME_STRING(p), data);
+  printf("process: starting '%s' data=%X\n", PROCESS_NAME_STRING(p), data);
 
   /* Post a synchronous initialization event to the process. */
   process_post_synch(p, PROCESS_EVENT_INIT, data);

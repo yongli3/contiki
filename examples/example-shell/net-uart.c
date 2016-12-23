@@ -57,11 +57,11 @@
  */
 /*---------------------------------------------------------------------------*/
 #include "contiki-conf.h"
+#include "contiki-net.h"
+
 #include "sys/process.h"
 #include "dev/serial-line.h"
-#include "net/ip/uip.h"
-#include "net/ip/uip-udp-packet.h"
-#include "net/ip/uiplib.h"
+
 #include "net-uart.h"
 #include "sys/cc.h"
 #include "xyzmodem.h"
@@ -88,6 +88,8 @@ static uint8_t msg_len;
 static uip_ip6addr_t remote_addr;
 static uint8_t FileName[8];
 static struct etimer uart_et;
+
+static struct psock ps;
 
 extern uint8_t ymodem_buf[BUFFER_SIZE];
 extern uint8_t tCRC[2];
@@ -454,7 +456,8 @@ PROCESS_THREAD(net_uart_process, ev, data)
     int size4 = 0;
     int i;
     int len = 0;
-  PROCESS_BEGIN();
+
+    PROCESS_BEGIN();
 
   printf("+%s\n", __func__);
   uip_ip6addr(&remote_addr, 0, 0, 0, 0, 0, 0xffff, 0x0aef, 0x3506);
@@ -532,7 +535,7 @@ for the etimer event to boardcast?
 // test rtimer
 // delay 2 ms speed = 43KB/s
 while (1) {
-    etimer_set(&uart_et, 2);
+    etimer_set(&uart_et, 2); //FIXME polling time should be based on uart baudrate
     PROCESS_WAIT_EVENT();
     etimer_reset(&uart_et);
     size1 = ringbuf_elements(&uart2_rxbuf1);
@@ -568,7 +571,8 @@ while (1) {
     
     if (len > 0) {
         uip_udp_packet_sendto(udp_conn, ymodem_buf, len, &remote_addr, UIP_HTONS(REMOTE_PORT));
-    }    
+    }
+    
     //printf("ev=%x %d data=%x\n", ev, clock_time(), data); // PROCESS_EVENT_MAX
 #endif
 
@@ -580,4 +584,62 @@ while (1) {
   PROCESS_END();
 }
 #endif
+
+static int
+handle_connection(struct psock *p)
+{
+  PSOCK_BEGIN(p);
+
+  PSOCK_SEND_STR(p, "GET / HTTP/1.0\r\n");
+  PSOCK_SEND_STR(p, "Server: Contiki example protosocket client\r\n");
+  PSOCK_SEND_STR(p, "\r\n");
+
+  while(1) {
+    PSOCK_READTO(p, '\n');
+    printf("Got: %s", buffer);
+  }
+  
+  PSOCK_END(p);
+}
+
+PROCESS(tcp_process, "tcp client");
+PROCESS_THREAD(tcp_process, ev, data)
+{
+  uip_ipaddr_t addr;
+
+  PROCESS_BEGIN();
+
+  printf("+%s\n", __func__);
+  uip_ip6addr(&remote_addr, 0, 0, 0, 0, 0, 0xffff, 0x0aef, 0x3506);
+
+  PRINTF("remote IP: ");
+  uip_debug_ipaddr_print(&remote_addr);
+  PRINTF("\n");  
+
+while (1) {
+    PROCESS_YIELD();
+  tcp_connect(&remote_addr, UIP_HTONS(80), NULL);
+
+  printf("Connecting... %d\n", clock_time());
+  PROCESS_WAIT_EVENT_UNTIL(ev == tcpip_event);
+
+  if(uip_aborted() || uip_timedout() || uip_closed()) {
+    // TCP timeout = 5 seconds
+    printf("Could not establish connection %d\n", clock_time());
+  } else if(uip_connected()) {
+    printf("Connected %d\n", clock_time());
+    
+    PSOCK_INIT(&ps, buffer, sizeof(buffer));
+
+    do {
+      handle_connection(&ps);
+      PROCESS_WAIT_EVENT_UNTIL(ev == tcpip_event);
+    } while(!(uip_closed() || uip_aborted() || uip_timedout()));
+
+    printf("\nConnection closed.\n");
+  }
+}
+  PROCESS_END();
+}
+
 

@@ -55,7 +55,7 @@
 
 #include <string.h>
 
-#define DEBUG DEBUG_NONE
+#define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
 #if UIP_LOGGING
@@ -198,6 +198,7 @@ packet_input(void)
   if(uip_len > 0) {
 
 #if UIP_CONF_IP_FORWARD
+    not used!
     tcpip_is_forwarding = 1;
     if(uip_fw_forward() != UIP_FW_LOCAL) {
       tcpip_is_forwarding = 0;
@@ -542,12 +543,14 @@ tcpip_ipv6_output(void)
   uip_ds6_nbr_t *nbr = NULL;
   uip_ipaddr_t *nexthop = NULL;
 
-  PRINTF("+%s len=%d\n", __func__, uip_len);
+  //PRINTF("+%s len=%d\n", __func__, uip_len);
 
   if(uip_len == 0) {
     return;
   }
 
+  PRINTF("+%s len=%d\n", __func__, uip_len);
+ 
   if(uip_len > UIP_LINK_MTU) {
     UIP_LOG("tcpip_ipv6_output: Packet to big");
     uip_clear_buf();
