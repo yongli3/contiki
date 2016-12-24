@@ -682,6 +682,7 @@ while (1) {
 }
 #else
 {
+    static int count = 0;
     int i = 0;
     uip_ipaddr_t addr;
     struct uip_conn *c;
@@ -721,9 +722,9 @@ wait ev
     // Only execute one time!
     printf("connect ...\n");
     // uip_connect does not work!
-    tcp_connect(&remote_addr, UIP_HTONS(80), NULL);
+    c = tcp_connect(&remote_addr, UIP_HTONS(80), NULL);
 
-    printf("while\n");
+    printf("while c=%x\n", c);
     
   while(1) {
     printf("wait ev %x\n", tcpip_event);
@@ -734,14 +735,22 @@ wait ev
     //uip_poll == UIP_POLL
     if  (uip_newdata()) { // UIP_NEWDATA = 2 every 40 ms incoming tcp data_len = 3.4ms
         // uip_datalen uip_appdata
-        for (i = 0; i < uip_datalen(); i++) { 
-            //debugbuf[debug_len++] = ((char *)uip_appdata)[i]; // (uint8_t * uip_appdata)[i];
-            putc2(((char *)uip_appdata)[i]);
+        if (uip_datalen() > 0) {
+            for (i = 0; i < uip_datalen(); i++) {
+                //debugbuf[debug_len++] = ((char *)uip_appdata)[i]; // (uint8_t * uip_appdata)[i];
+                putc2(((char *)uip_appdata)[i]);
+            }
+            count++;
+            if ((count % 3) == 0) {
+                printf("count=%d stop\n", count);
+                uip_stop();
+            }
         }
     }
 
-    if (uip_poll()) { // = UIP_POLL
-
+    if (uip_poll() && uip_stopped(c)) { // = UIP_POLL = 8
+        printf("restart \n");
+        uip_restart();
     }
     
     if(uip_aborted())
