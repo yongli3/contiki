@@ -22,7 +22,6 @@ PROCESS_NAME(udp_client_process);
 PROCESS_NAME(about_process);
 PROCESS_NAME(shell_httpd_process);
 PROCESS_NAME(test_etimer_process);
-PROCESS_NAME(tcp_process);
 
 ///PROCESS_NAME(dhcp_process);
 

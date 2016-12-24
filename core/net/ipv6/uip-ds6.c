@@ -534,7 +534,7 @@ uip_ds6_select_src(uip_ipaddr_t *src, uip_ipaddr_t *dst)
   /* use the :: (unspecified address) as source if no match found */
   if(matchaddr == NULL) {
     #if 0
-    // if destip is ipv4-ipv6 format, just set the src to local ipv4 address
+    //FIXME if destip is ipv4-ipv6 format, just set the src to local ipv4 address
     if (dst->u8[0] == 0 &&
          dst->u8[1] == 0 &&
          dst->u8[2] == 0 &&
@@ -556,7 +556,9 @@ uip_ds6_select_src(uip_ipaddr_t *src, uip_ipaddr_t *dst)
         uip_create_unspecified(src);
     }
     #else
-    printf("-%s NULL\n", __func__);
+    printf("%s NULL dst=", __func__);
+    uip_debug_ipaddr_print(dst);
+    printf("\n");
     uip_create_unspecified(src);
     #endif
   } else {

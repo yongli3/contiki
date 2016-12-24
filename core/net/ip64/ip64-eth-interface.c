@@ -41,7 +41,7 @@
 
 #define UIP_IP_BUF        ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 
-#define DEBUG DEBUG_PRINT
+#define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 //#define printf(...)
 /*---------------------------------------------------------------------------*/
@@ -93,7 +93,7 @@ output(void)
 
   //uip_ipaddr_copy(&UIP_IP_BUF->destipaddr, &uip_udp_conn->ripaddr);
 
-  PRINTF("+ip64_eth_interface %s UIP_IP_BUF=%x uip_buf=%x uip_len=%d\n", __func__, UIP_IP_BUF, uip_buf, uip_len);
+  PRINTF("+ip64_eth_interface %s UIP_IP_BUF=%x uip_buf=%x uip_len=%d ", __func__, UIP_IP_BUF, uip_buf, uip_len);
 
   for (i = 0; i < uip_len; i++) {
       if (0 == (i % 16))
@@ -109,14 +109,13 @@ output(void)
   PRINT6ADDR(&UIP_IP_BUF->destipaddr);
   PRINTF("\n");
 
-  PRINTF("<--------------\n");
   len = ip64_6to4(&uip_buf[UIP_LLH_LEN], uip_len,
 		  &ip64_packet_buffer[sizeof(struct ip64_eth_hdr)]);
 
   PRINTF("ip64_eth_interface output len %d\n", len);
   if(len > 0) {
     if(ip64_arp_check_cache(&ip64_packet_buffer[sizeof(struct ip64_eth_hdr)])) {
-      PRINTF("Create header\n");
+      PRINTF("Create ethhdr->out\n");
       ret = ip64_arp_create_ethhdr(ip64_packet_buffer,
 				   &ip64_packet_buffer[sizeof(struct ip64_eth_hdr)]);
       if(ret > 0) {
@@ -124,7 +123,7 @@ output(void)
 	IP64_ETH_DRIVER.output(ip64_packet_buffer, len); // enc28j60_ip64_driver
       }
     } else {
-      PRINTF("Create request\n");
+      PRINTF("Create request->out\n");
       len = ip64_arp_create_arp_request(ip64_packet_buffer,
 					&ip64_packet_buffer[sizeof(struct ip64_eth_hdr)]);
       return IP64_ETH_DRIVER.output(ip64_packet_buffer, len); // enc28j60_ip64_driver

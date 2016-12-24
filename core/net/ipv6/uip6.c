@@ -91,7 +91,7 @@
 /* For Debug, logging, statistics                                            */
 /*---------------------------------------------------------------------------*/
 
-#define DEBUG DEBUG_PRINT
+#define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 
 #if UIP_LOGGING == 1
@@ -1450,7 +1450,7 @@ not used!
     UIP_STAT(++uip_stat.icmp.drop);
     UIP_STAT(++uip_stat.icmp.chkerr);
     UIP_LOG("icmpv6: bad checksum.");
-    PRINTF("icmpv6: bad checksum.\n");
+    printf("icmpv6: bad checksum.\n");
     goto drop;
   }
 #endif /*UIP_CONF_IPV6_CHECKS*/
@@ -1535,11 +1535,11 @@ not used!
        connection is bound to a remote port. Finally, if the
        connection is bound to a remote IP address, the source IP
        address of the packet is checked. */
-       PRINTF("* lport=0x%X rport=0x%X\n", uip_udp_conn->lport, uip_udp_conn->rport);
-        PRINTF("ripaddr: ");
+       PRINTF("*lport=0x%X rport=0x%X ", uip_udp_conn->lport, uip_udp_conn->rport);
+       PRINTF("ripaddr: ");
         PRINT6ADDR(&(uip_udp_conn->ripaddr));
-        PRINTF("\n");
-        PRINTF("srcipaddr: ");
+        //PRINTF("\n");
+        PRINTF(" srcipaddr: ");
         PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
         PRINTF("\n");
     if(uip_udp_conn->lport != 0 &&
@@ -1603,6 +1603,8 @@ not used!
   // uip_ip_hdr
   uip_ipaddr_copy(&UIP_IP_BUF->destipaddr, &uip_udp_conn->ripaddr);
   uip_ds6_select_src(&UIP_IP_BUF->srcipaddr, &UIP_IP_BUF->destipaddr);
+
+  // FIXME set the srcipaddr to local IPV6-IPV4 ipaddress
 
   PRINTF("Sending UDP packet to ");
   PRINT6ADDR(&UIP_IP_BUF->destipaddr);
@@ -2305,7 +2307,7 @@ not used!
 
   uip_ipaddr_copy(&UIP_IP_BUF->destipaddr, &uip_connr->ripaddr);
   // FIXME for TCP cehck if it is ipv6-ipv4 format:
-  //uip_ds6_select_src(&UIP_IP_BUF->srcipaddr, &UIP_IP_BUF->destipaddr);
+  // TODO add gateway support
   // if destip is ipv4-ipv6 format, just set the src to local ipv4 address
   dst_ip = &UIP_IP_BUF->destipaddr;
   if (dst_ip->u8[0] == 0 &&
@@ -2320,7 +2322,7 @@ not used!
        dst_ip->u8[9] == 0 &&
        dst_ip->u8[10] == 0xff &&
        dst_ip->u8[11] == 0xff) {
-      printf("IPV4-ipv6 use load ipv6-ipv4 address ");
+      //printf("IPV4-ipv6 use local ipv6-ipv4 address as srcip");
       PRINT6ADDR(ip64_get_host6addr());
       printf("\n");
       ip64_addr_copy6(&UIP_IP_BUF->srcipaddr, ip64_get_host6addr());

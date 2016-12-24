@@ -75,7 +75,7 @@
 #include "net/ip/uip-debug.h"
 /*---------------------------------------------------------------------------*/
 #define REMOTE_PORT  7777
-#define MAX_MSG_SIZE  100
+#define MAX_MSG_SIZE  128
 
 /*---------------------------------------------------------------------------*/
 #define ADDRESS_CONVERSION_OK       1
@@ -83,7 +83,7 @@
 /*---------------------------------------------------------------------------*/
 static struct uip_udp_conn *udp_conn = NULL;
 
-static uint8_t buffer[MAX_MSG_SIZE];
+static uint8_t tcpbuffer[MAX_MSG_SIZE];
 static uint8_t msg_len;
 static uip_ip6addr_t remote_addr;
 static uint8_t FileName[8];
@@ -118,21 +118,6 @@ PROCESS(net_uart_process, "Net UART Process");
  * be very straightforward.
  */
 /*---------------------------------------------------------------------------*/
-static void
-net_input(void)
-{
-    PRINTF("+%s uip_flags=%x\n", __func__, uip_flags);
-  if(uip_newdata()) {
-    memset(buffer, 0, MAX_MSG_SIZE);
-    msg_len = MIN(uip_datalen(), MAX_MSG_SIZE - 1);
-
-    /* Copy data */
-    memcpy(buffer, uip_appdata, msg_len);
-    printf("%s", (char *)buffer);
-  }
-
-  return;
-}
 static void YMODEM_sendchar(const char ch)
 {
     putc2(ch);
@@ -584,26 +569,61 @@ while (1) {
   PROCESS_END();
 }
 #endif
-
-static int
-handle_connection(struct psock *p)
+static void
+net_input(void)
 {
+    PRINTF("+%s uip_flags=%x\n", __func__, uip_flags);
+  if(uip_newdata()) {
+    memset(tcpbuffer, 0, MAX_MSG_SIZE);
+    msg_len = MIN(uip_datalen(), MAX_MSG_SIZE - 1);
+
+    /* Copy data */
+    memcpy(tcpbuffer, uip_appdata, msg_len);
+    //printf("%s", (char *)tcpbuffer);
+  }
+
+  return;
+}
+
+static int send_httpget(struct psock *p)
+{
+    PSOCK_BEGIN(p);
+    
+    PSOCK_SEND_STR(p, "GET /test.txt HTTP/1.0\r\n\r\n");
+    //PSOCK_SEND_STR(p, "Server: Contiki example protosocket client\r\n");
+    //PSOCK_SEND_STR(p, "\r\n");
+    PSOCK_END(p);
+}
+
+static int handle_tcpconnection(struct psock *p)
+{
+    int i = 0;
+    int len = 0;
   PSOCK_BEGIN(p);
 
-  PSOCK_SEND_STR(p, "GET / HTTP/1.0\r\n");
-  PSOCK_SEND_STR(p, "Server: Contiki example protosocket client\r\n");
-  PSOCK_SEND_STR(p, "\r\n");
+  printf("+%s\n", __func__);
 
-  while(1) {
-    PSOCK_READTO(p, '\n');
-    printf("Got: %s", buffer);
+ // PSOCK_SEND_STR(p, "GET /test.txt HTTP/1.0\r\n");
+ // PSOCK_SEND_STR(p, "Server: Contiki example protosocket client\r\n");
+ // PSOCK_SEND_STR(p, "\r\n");
+
+  //while(1) 
+  {
+    //PSOCK_READTO(p, '\n');
+    PSOCK_READBUF(p);
+    len = PSOCK_DATALEN(p);
+    printf("1: %d %d\n", len, clock_time());
+    for (i = 0; i < len; i++) {
+        putc2(tcpbuffer[i]);
+    }
+    printf("2: %d\n", clock_time());
   }
   
   PSOCK_END(p);
 }
 
-PROCESS(tcp_process, "tcp client");
-PROCESS_THREAD(tcp_process, ev, data)
+PROCESS(tcptest_process, "tcptest client");
+PROCESS_THREAD(tcptest_process, ev, data)
 {
   uip_ipaddr_t addr;
 
@@ -617,7 +637,7 @@ PROCESS_THREAD(tcp_process, ev, data)
   PRINTF("\n");  
 
 while (1) {
-    PROCESS_YIELD();
+  //TODO Use etimer to poll
   tcp_connect(&remote_addr, UIP_HTONS(80), NULL);
 
   printf("Connecting... %d\n", clock_time());
@@ -628,18 +648,17 @@ while (1) {
     printf("Could not establish connection %d\n", clock_time());
   } else if(uip_connected()) {
     printf("Connected %d\n", clock_time());
-    
-    PSOCK_INIT(&ps, buffer, sizeof(buffer));
+    PSOCK_INIT(&ps, tcpbuffer, sizeof(tcpbuffer));
+    send_httpget(&ps);
 
     do {
-      handle_connection(&ps);
+      handle_tcpconnection(&ps);
       PROCESS_WAIT_EVENT_UNTIL(ev == tcpip_event);
     } while(!(uip_closed() || uip_aborted() || uip_timedout()));
 
     printf("\nConnection closed.\n");
+    PROCESS_EXIT();
   }
 }
   PROCESS_END();
 }
-
-

@@ -40,7 +40,7 @@
 
 #include "ip64-addr.h"
 
-#define DEBUG DEBUG_NONE
+#define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
 
 #define STATE_INITIAL         0
@@ -204,6 +204,7 @@ send_request(void)
   end = add_end(end);
   
   uip_send(uip_appdata, (int)(end - (uint8_t *)uip_appdata));
+  PRINTF("-%s\n", __func__);
 }
 /*---------------------------------------------------------------------------*/
 static uint8_t
@@ -456,7 +457,7 @@ ip64_dhcpc_init(const void *mac_addr, int mac_len)
   printf("+%s mac_len=%d ", __func__, mac_len);
 
   for (i = 0; i < mac_len; i++)
-    printf("%x ", buf[i]);
+    printf("%02x:", buf[i]);
   printf("\n");
 
   s.state = STATE_INITIAL;
@@ -467,7 +468,7 @@ ip64_dhcpc_init(const void *mac_addr, int mac_len)
   }
   printf("%s conn=%X ripaddr=", __func__);
   uip_debug_ipaddr_print(&(s.conn->ripaddr));
-  printf("\n");
+  printf("\n conn2 ripaddr=");
 
     // remote addr = 0
   conn2 = udp_new(NULL, UIP_HTONS(IP64_DHCPC_SERVER_PORT), NULL);

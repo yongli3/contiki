@@ -53,8 +53,10 @@ LIST(entrylist);
 #define LAST_MAPPED_PORT  20000
 static uint16_t mapped_port = FIRST_MAPPED_PORT;
 
-//#define printf(...)
-#define PRINT6ADDRRAW(addr) printf(" %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ", ((uint8_t *)addr)[0], ((uint8_t *)addr)[1], ((uint8_t *)addr)[2], ((uint8_t *)addr)[3], ((uint8_t *)addr)[4], ((uint8_t *)addr)[5], ((uint8_t *)addr)[6], ((uint8_t *)addr)[7], ((uint8_t *)addr)[8], ((uint8_t *)addr)[9], ((uint8_t *)addr)[10], ((uint8_t *)addr)[11], ((uint8_t *)addr)[12], ((uint8_t *)addr)[13], ((uint8_t *)addr)[14], ((uint8_t *)addr)[15])
+#define DEBUG DEBUG_NONE
+#include "net/ip/uip-debug.h"
+
+#define PRINT6ADDRRAW(addr) PRINTF(" %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ", ((uint8_t *)addr)[0], ((uint8_t *)addr)[1], ((uint8_t *)addr)[2], ((uint8_t *)addr)[3], ((uint8_t *)addr)[4], ((uint8_t *)addr)[5], ((uint8_t *)addr)[6], ((uint8_t *)addr)[7], ((uint8_t *)addr)[8], ((uint8_t *)addr)[9], ((uint8_t *)addr)[10], ((uint8_t *)addr)[11], ((uint8_t *)addr)[12], ((uint8_t *)addr)[13], ((uint8_t *)addr)[14], ((uint8_t *)addr)[15])
 
 /*---------------------------------------------------------------------------*/
 struct ip64_addrmap_entry *
@@ -127,6 +129,7 @@ recycle(void)
 }
 /*---------------------------------------------------------------------------*/
 // used by 6to4
+// ip64_addrmap_lookup proto=6 ip6port=404 ip4port=50 ip4=10.239.53.6 ip6= fe80:0000:0000:0000:8203:00ff:fe00:0000
 struct ip64_addrmap_entry *
 ip64_addrmap_lookup(const uip_ip6addr_t *ip6addr,
 		    uint16_t ip6port,
@@ -136,14 +139,14 @@ ip64_addrmap_lookup(const uip_ip6addr_t *ip6addr,
 {
   struct ip64_addrmap_entry *m;
 
-  printf("+%s proto=%x ip6port=%x ip4port=%x ip4=%d.%d.%d.%d ip6=", 
-      __func__, protocol, ip6port, ip4port, ip4addr->u8[0], ip4addr->u8[1], ip4addr->u8[2], ip4addr->u8[3]);
+  PRINTF("+%s %d proto=%x ip6port=%x ip4port=%x ip4=%d.%d.%d.%d ip6=", 
+      __func__, list_length(entrylist), protocol, ip6port, ip4port, ip4addr->u8[0], ip4addr->u8[1], ip4addr->u8[2], ip4addr->u8[3]);
   PRINT6ADDRRAW(ip6addr);
-  printf("\n");
+  PRINTF("\n");
   
   check_age();
   for(m = list_head(entrylist); m != NULL; m = list_item_next(m)) {
-    printf("protocol %d %d, ip4port %d %d, ip6port %d %d, ip4 %d ip6 %d\n",
+    PRINTF("protocol %d %d, ip4port %d %d, ip6port %d %d, ip4 %d ip6 %d\n",
 	   m->protocol, protocol,
 	   m->ip4port, ip4port,
 	   m->ip6port, ip6port,
@@ -167,11 +170,11 @@ ip64_addrmap_lookup_port(uint16_t mapped_port, uint8_t protocol)
 {
   struct ip64_addrmap_entry *m;
 
-    printf("+%s %x-%x\n", __func__, mapped_port, protocol);
+    PRINTF("+%s port=%x proto=%x\n", __func__, mapped_port, protocol);
 
   check_age();
   for(m = list_head(entrylist); m != NULL; m = list_item_next(m)) {
-    printf("mapped port %d %d, protocol %d %d\n",
+    PRINTF("mapped port %x %x, protocol %x %x\n",
 	   m->mapped_port, mapped_port,
 	   m->protocol, protocol);
     
@@ -191,7 +194,8 @@ increase_mapped_port(void)
     FIRST_MAPPED_PORT;
 }
 /*---------------------------------------------------------------------------*/
-// used by 6to4 generated a mapped port
+// used by 6to4 generated a mapped port ip6addr is local address ip4addr is remote ip
+// ip64_addrmap_create proto=6 ip6port=404 ip4port=50 ip4=10.239.53.6 ip6=  fe80:0000:0000:0000:8203:00ff:fe00:0000
 struct ip64_addrmap_entry *
 ip64_addrmap_create(const uip_ip6addr_t *ip6addr,
 		    uint16_t ip6port,
@@ -201,10 +205,10 @@ ip64_addrmap_create(const uip_ip6addr_t *ip6addr,
 {
   struct ip64_addrmap_entry *m;
 
-    printf("+%s proto=%x ip6port=%x ip4port=%x ip4=%d.%d.%d.%d ip6= ", 
+    PRINTF("+%s proto=%x ip6port=%x ip4port=%x ip4=%d.%d.%d.%d ip6= ", 
         __func__, protocol, ip6port, ip4port, ip4addr->u8[0], ip4addr->u8[1], ip4addr->u8[2], ip4addr->u8[3]);
     PRINT6ADDRRAW(ip6addr);
-    printf("\n");
+    PRINTF("\n");
   check_age();
   m = memb_alloc(&entrymemb);
   if(m == NULL) {

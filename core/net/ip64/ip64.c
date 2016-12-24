@@ -64,7 +64,7 @@
 #include "ip64-ipv4-dhcp.h"
 #include "contiki-net.h"
 
-#define DEBUG DEBUG_PRINT
+#define DEBUG DEBUG_NONE
 #include "net/ip/uip-debug.h"
 
 #include <string.h> /* for memcpy() */
@@ -103,6 +103,9 @@ struct ipv4_hdr {
 
 #define ICMP_ECHO_REPLY  0
 #define ICMP_ECHO        8
+#define ICMP_DEST_UNREACHABLE        3
+#define ICMP_PORT_UNREACHABLE        3
+
 #define ICMP6_ECHO_REPLY 129
 #define ICMP6_ECHO       128
 
@@ -622,8 +625,6 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
   v4hdr->ipchksum = 0;
   v4hdr->ipchksum = ~(ipv4_checksum(v4hdr));
 
-
-
   /* The checksum is in different places in the different protocol
      headers, so we need to be sure that we update the correct
      field. */
@@ -653,7 +654,7 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
   }
 
   /* Finally, we return the length of the resulting IPv4 packet. */
-  PRINTF("-%s: ipv4len=%d srcip=%d.%d.%d.%d destip=%d.%d.%d.%d\n", __func__, ipv4len, 
+  PRINTF("-%s: ipv4len=%d chksum=%x srcip=%d.%d.%d.%d destip=%d.%d.%d.%d\n", __func__, ipv4len, v4hdr->ipchksum, 
   v4hdr->srcipaddr.u8[0], v4hdr->srcipaddr.u8[1], v4hdr->srcipaddr.u8[2], v4hdr->srcipaddr.u8[3], 
   v4hdr->destipaddr.u8[0], v4hdr->destipaddr.u8[1], v4hdr->destipaddr.u8[2], v4hdr->destipaddr.u8[3]);
   return ipv4len;
@@ -793,8 +794,10 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
       v6hdr->nxthdr = IP_PROTO_ICMPV6;
       icmpv6hdr->type = ICMP6_ECHO_REPLY;
       ip64_addr_copy6(&v6hdr->destipaddr, &ipv6_local_address);       
-    } 
-    else {
+    } else if (icmpv4hdr->type == ICMP_DEST_UNREACHABLE) {
+        v6hdr->nxthdr = IP_PROTO_ICMPV6;
+        icmpv6hdr->type = ICMP6_DST_UNREACH;
+    } else {
       printf("ip64_packet_4to6: ICMPv4 packet type %d not supported\n",
 	     icmpv4hdr->type);
       return 0;
@@ -873,7 +876,7 @@ ip64_4to6(const uint8_t *ipv4packet, const uint16_t ipv4packet_len,
 	 mapping table. */
 	 // 4to6 should be incoming packet, maybe the first one, destport= device localport
 	 if (v4hdr->proto == IP_PROTO_TCP) {
-        PRINTF("4to6 tcp\n");
+        PRINTF("4to6 tcp ");
        for (i = 0; i < ipv6len; i++) {
         if (0 == (i % 16))
               PRINTF("\n");
