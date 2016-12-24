@@ -83,6 +83,8 @@
 /*---------------------------------------------------------------------------*/
 static struct uip_udp_conn *udp_conn = NULL;
 
+static unsigned char debugbuf[1024];
+static unsigned int debug_len = 0;
 static uint8_t tcpbuffer[MAX_MSG_SIZE];
 static uint8_t msg_len;
 static uip_ip6addr_t remote_addr;
@@ -601,7 +603,7 @@ static int handle_tcpconnection(struct psock *p)
     int len = 0;
   PSOCK_BEGIN(p);
 
-  printf("+%s\n", __func__);
+  printf("+tcpin ");
 
  // PSOCK_SEND_STR(p, "GET /test.txt HTTP/1.0\r\n");
  // PSOCK_SEND_STR(p, "Server: Contiki example protosocket client\r\n");
@@ -610,13 +612,20 @@ static int handle_tcpconnection(struct psock *p)
   //while(1) 
   {
     //PSOCK_READTO(p, '\n');
-    PSOCK_READBUF(p);
+    PSOCK_READBUF(p);    
     len = PSOCK_DATALEN(p);
-    printf("1: %d %d\n", len, clock_time());
-    for (i = 0; i < len; i++) {
-        putc2(tcpbuffer[i]);
+    printf("1: %d %d ", len, clock_time());
+    if (len > 0) {
+        for (i = 0; i < len; i++) {
+            debugbuf[debug_len++] = tcpbuffer[i]; 
+            //putc2(tcpbuffer[i]);
+        }
+        if (debug_len > 100) {
+            printf("check ...\n");
+        }
     }
-    printf("2: %d\n", clock_time());
+
+    printf("2: %d %d\n", debug_len, clock_time());    
   }
   
   PSOCK_END(p);
@@ -624,8 +633,10 @@ static int handle_tcpconnection(struct psock *p)
 
 PROCESS(tcptest_process, "tcptest client");
 PROCESS_THREAD(tcptest_process, ev, data)
+#if 0    
 {
   uip_ipaddr_t addr;
+  struct uip_conn *c;
 
   PROCESS_BEGIN();
 
@@ -652,8 +663,15 @@ while (1) {
     send_httpget(&ps);
 
     do {
-      handle_tcpconnection(&ps);
       PROCESS_WAIT_EVENT_UNTIL(ev == tcpip_event);
+      if (uip_newdata()) {
+        handle_tcpconnection(&ps);
+        //uip_stop();
+      }
+
+      if(uip_poll() && uip_stopped(c)) {
+        //uip_restart();
+      }
     } while(!(uip_closed() || uip_aborted() || uip_timedout()));
 
     printf("\nConnection closed.\n");
@@ -662,3 +680,95 @@ while (1) {
 }
   PROCESS_END();
 }
+#else
+{
+    int i = 0;
+    uip_ipaddr_t addr;
+    struct uip_conn *c;
+// on first time, will execute "wait ev" 
+//press Enter on shell, this function will be called, but does not execute while (1)
+// ev = PROCESS_EVENT_NONE
+
+#if 0
+On first time, the connect api is called, and wait for event
+process: starting 'tcptest client' data=0
++process_thread_tcptest_process
+remote IP: ::FFFF:10.239.53.6
+connect ...
+while
+wait ev
+
+
++process_thread_tcptest_process
+remote IP: ::FFFF:10.239.53.6
+ev=8d
+TCP Connected
+wait ev
+
++process_thread_tcptest_process
+remote IP: ::FFFF:10.239.53.6
+ev=8d
+wait ev
+#endif
+    printf("+tcp-> %d\n", clock_time());
+
+  PROCESS_BEGIN();
+  uip_ip6addr(&remote_addr, 0, 0, 0, 0, 0, 0xffff, 0x0aef, 0x3506);
+  PRINTF("remote IP: ");
+  uip_debug_ipaddr_print(&remote_addr);
+  PRINTF("\n");
+
+    // Only execute one time!
+    printf("connect ...\n");
+    // uip_connect does not work!
+    tcp_connect(&remote_addr, UIP_HTONS(80), NULL);
+
+    printf("while\n");
+    
+  while(1) {
+    printf("wait ev %x\n", tcpip_event);
+    PROCESS_WAIT_EVENT_UNTIL(ev == tcpip_event);
+    printf("ev=%x flags=%x len=%d\n", ev, uip_flags, uip_datalen());
+#if 1
+    // uip_rexmit 
+    //uip_poll == UIP_POLL
+    if  (uip_newdata()) { // UIP_NEWDATA = 2 every 40 ms incoming tcp data_len = 3.4ms
+        // uip_datalen uip_appdata
+        for (i = 0; i < uip_datalen(); i++) { 
+            //debugbuf[debug_len++] = ((char *)uip_appdata)[i]; // (uint8_t * uip_appdata)[i];
+            putc2(((char *)uip_appdata)[i]);
+        }
+    }
+
+    if (uip_poll()) { // = UIP_POLL
+
+    }
+    
+    if(uip_aborted())
+	    printf("TCP aborted\n");
+    
+    if(uip_timedout())
+	    printf("TCP timeout\n");
+    
+    if(uip_closed()) { // = UIP_CLOSE = 0x10 = 16
+	    printf("TCP closed\n"); // after close, there is no any event 
+     }
+    
+    if(uip_connected() || uip_rexmit()) { // UIP_CONNECTED = 0x40 = 64
+      printf("TCP Connected\n\r");
+      uip_send("GET /test.txt HTTP/1.0\r\n\r\n", strlen("GET /test.txt HTTP/1.0\r\n\r\n"));      
+      #if 0
+      PSOCK_INIT(&ps, buf, sizeof(buf));
+      while(!(uip_aborted() || uip_closed() || uip_timedout())) {
+	    PROCESS_WAIT_EVENT_UNTIL(ev == tcpip_event);
+	    handle_connection(&ps);
+      }
+      #endif
+    }
+#endif    
+  }
+  PROCESS_END();
+}
+#endif
+
+
