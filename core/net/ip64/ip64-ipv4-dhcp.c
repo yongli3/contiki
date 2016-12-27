@@ -45,6 +45,7 @@
 PROCESS_NAME(shell_httpd_process);
 PROCESS_NAME(net_uart_process);
 PROCESS_NAME(tcptest_process);
+PROCESS_NAME(netserver_process);
 
 PROCESS(ip64_ipv4_dhcp_process, "IPv4 DHCP");
 
@@ -112,7 +113,8 @@ ip64_dhcpc_configured(const struct ip64_dhcpc_state *s)
 
   set_uart2_event_process(&net_uart_process);
   
-  process_start(&tcptest_process, NULL);
+  //process_start(&tcptest_process, NULL);
+  process_start(&netserver_process, NULL);
 }
 /*---------------------------------------------------------------------------*/
 void

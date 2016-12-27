@@ -556,9 +556,9 @@ uip_ds6_select_src(uip_ipaddr_t *src, uip_ipaddr_t *dst)
         uip_create_unspecified(src);
     }
     #else
-    printf("%s NULL dst=", __func__);
-    uip_debug_ipaddr_print(dst);
-    printf("\n");
+    //printf("%s NULL dst=", __func__);
+    //uip_debug_ipaddr_print(dst);
+    //printf("\n");
     uip_create_unspecified(src);
     #endif
   } else {

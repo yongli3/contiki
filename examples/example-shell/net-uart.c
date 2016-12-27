@@ -73,6 +73,10 @@
 /*---------------------------------------------------------------------------*/
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
+
+#define UIP_IP_BUF   ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
+#define UIP_UDP_BUF  ((struct uip_udp_hdr *)&uip_buf[uip_l2_l3_hdr_len])
+
 /*---------------------------------------------------------------------------*/
 #define REMOTE_PORT  7777
 #define MAX_MSG_SIZE  128
@@ -82,6 +86,7 @@
 #define ADDRESS_CONVERSION_ERROR    0
 /*---------------------------------------------------------------------------*/
 static struct uip_udp_conn *udp_conn = NULL;
+static struct uip_udp_conn *server_conn;
 
 static unsigned char debugbuf[1024];
 static unsigned int debug_len = 0;
@@ -437,6 +442,7 @@ PROCESS_THREAD(net_uart_process, ev, data)
 /////*---------------------------------------------------------------------------*/
 PROCESS_THREAD(net_uart_process, ev, data)
 {
+    static unsigned int total_len = 0;
     int size1 = 0;
     int size2 = 0;
     int size3 = 0;
@@ -558,16 +564,13 @@ while (1) {
     
     if (len > 0) {
         uip_udp_packet_sendto(udp_conn, ymodem_buf, len, &remote_addr, UIP_HTONS(REMOTE_PORT));
+        total_len += len;
     }
-    
     //printf("ev=%x %d data=%x\n", ev, clock_time(), data); // PROCESS_EVENT_MAX
 #endif
 
-
 }
 #endif
-  
-
   PROCESS_END();
 }
 #endif
@@ -631,6 +634,7 @@ static int handle_tcpconnection(struct psock *p)
   PSOCK_END(p);
 }
 
+// Connect to server and download data, then write to UART2
 PROCESS(tcptest_process, "tcptest client");
 PROCESS_THREAD(tcptest_process, ev, data)
 #if 0    
@@ -711,7 +715,7 @@ remote IP: ::FFFF:10.239.53.6
 ev=8d
 wait ev
 #endif
-    printf("+tcp-> %d\n", clock_time());
+    printf("+tcp %d\n", clock_time());
 
   PROCESS_BEGIN();
   uip_ip6addr(&remote_addr, 0, 0, 0, 0, 0, 0xffff, 0x0aef, 0x3506);
@@ -742,14 +746,14 @@ wait ev
             }
             count++;
             if ((count % 3) == 0) {
-                printf("count=%d stop\n", count);
-                uip_stop();
+                //printf("count=%d stop\n", count);
+                //uip_stop();
             }
         }
     }
 
     if (uip_poll() && uip_stopped(c)) { // = UIP_POLL = 8
-        printf("restart \n");
+        printf("restart\n");
         uip_restart();
     }
     
@@ -760,11 +764,11 @@ wait ev
 	    printf("TCP timeout\n");
     
     if(uip_closed()) { // = UIP_CLOSE = 0x10 = 16
-	    printf("TCP closed\n"); // after close, there is no any event 
+	    printf("TCP closed\n"); // after close, there is no any event
      }
     
     if(uip_connected() || uip_rexmit()) { // UIP_CONNECTED = 0x40 = 64
-      printf("TCP Connected\n\r");
+      printf("TCP Connected\n");
       uip_send("GET /test.txt HTTP/1.0\r\n\r\n", strlen("GET /test.txt HTTP/1.0\r\n\r\n"));      
       #if 0
       PSOCK_INIT(&ps, buf, sizeof(buf));
@@ -780,4 +784,86 @@ wait ev
 }
 #endif
 
+static void tcpip_handler(void)
+{
+    int i = 0;
+    int len = uip_datalen();
+    char ack[] = "ack";
 
+    if (len > 0) {
+        PRINTF("%u bytes from [", len);
+        PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
+        PRINTF("]:%u\n", UIP_HTONS(UIP_UDP_BUF->srcport));
+        for (i = 0; i < len; i++) { // write to UART2 and send back ACK
+            putc2(((char *)uip_appdata)[i]);
+        }
+#if 1
+        //uip_ipaddr_copy(&server_conn->ripaddr, &UIP_IP_BUF->srcipaddr);
+        //server_conn->rport = UIP_UDP_BUF->srcport;
+        //uip_udp_packet_send(server_conn, ack, sizeof(ack));
+        //uip_create_unspecified(&server_conn->ripaddr);
+        //server_conn->rport = 0;
+
+        memcpy(&remote_addr, &UIP_IP_BUF->srcipaddr, sizeof(remote_addr));
+        uip_udp_packet_sendto(udp_conn, ack, sizeof(ack), &remote_addr, UIP_HTONS(3000));
+#endif    
+    }
+
+#if 0 
+  if(uip_newdata()) {
+    leds_on(LEDS_RED);
+    len = uip_datalen();
+    memcpy(buf, uip_appdata, len);
+    PRINTF("%u bytes from [", len);
+    PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
+    PRINTF("]:%u\n", UIP_HTONS(UIP_UDP_BUF->srcport));
+    uip_ipaddr_copy(&server_conn->ripaddr, &UIP_IP_BUF->srcipaddr);
+    server_conn->rport = UIP_UDP_BUF->srcport;
+
+    uip_udp_packet_send(server_conn, buf, len);
+    uip_create_unspecified(&server_conn->ripaddr);
+    server_conn->rport = 0;
+  }
+  leds_off(LEDS_RED);
+#endif  
+  return;
+}
+
+// As a server, listen and receive data, then write to uart2
+PROCESS(netserver_process, "TCP/UDP server process");
+PROCESS_THREAD(netserver_process, ev, data)
+{
+
+  PROCESS_BEGIN();
+  PRINTF("Starting TCP/UDP server\n");
+
+  server_conn = udp_new(NULL, UIP_HTONS(0), NULL);
+  udp_bind(server_conn, UIP_HTONS(3000));
+
+  PRINTF("Listen port: 3000, TTL=%u\n", server_conn->ttl);
+
+  while(1) {
+    PROCESS_YIELD();
+    if(ev == tcpip_event) {
+        printf("flag=%x\n", uip_flags);       
+      tcpip_handler();
+    }
+  }
+
+  PROCESS_END();
+}
+#if 0
+TODO STM32 should support:
+1. TCP client
+    TCP in(->uart) okay
+    TCP out(uart->) ...
+2. TCP server
+    TCP in ...
+    TCP out ...
+3. UDP client
+    UDP out(uart->) okay
+    UDP in ...
+4. UDP server
+    UDP out ... 
+    UDP in ...
+#endif
