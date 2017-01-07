@@ -18,6 +18,12 @@ SENSORS = sensors.c stm32f4discovery-sensors.c button-sensor.c
 CONTIKI_TARGET_SOURCEFILES += $(STM32F4DISCOVERY) $(SENSORS) $(STEPPER_ROBOT) \
  $(CODEPROP_SOURCES) $(CONTIKI_TARGET_MAIN)
 
+ifeq ($(CONTIKI_WITH_IPV6),1)
+MODULES +=  core/net core/net/mac core/net/mac/sicslowmac core/net/ip64
+CONTIKI_TARGET_SOURCEFILES += linkaddr.c link-stats.c queuebuf.c nullmac.c packetbuf.c \
+                              frame802154.c framer-802154.c nullsec.c nbr-table.c
+endif
+
 # include $(CONTIKI)/platform/$(TARGET)/apps/Makefile.apps
 
 include $(CONTIKI)/cpu/arm/stm32f4xx/Makefile.stm32f4xx

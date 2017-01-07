@@ -10,8 +10,8 @@
 #include <packet_drv.h>
 
 #include <net/netstack.h>
-#include <net/uip.h>
-#include <net/uip_arp.h>
+#include <net/ip/uip.h>
+#include <net/ipv4/uip_arp.h>
 
 #include <main.h>
 
@@ -34,6 +34,8 @@ main()
   process_init();
   process_start(&etimer_process, NULL);
 	process_start(&sensors_process, NULL);
+
+#if 0
   process_start(&stm32f4discovery_packet_drv, NULL);
 
 	{
@@ -59,7 +61,7 @@ main()
 		uip_setnetmask(&netmask);
 		uip_setdraddr(&gwaddr);
 	}
-
+#endif
 
   autostart_start(autostart_processes);
   printf("Processes running\n");

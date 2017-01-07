@@ -8,6 +8,7 @@
 
 #define WITH_UIP 1
 #define WITH_ASCII 1
+#define UIP_CONF_ROUTER                 0
 
 #define CLOCK_CONF_SECOND 100
 

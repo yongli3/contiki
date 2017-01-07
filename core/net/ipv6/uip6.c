@@ -2399,7 +2399,7 @@ uip_send(const void *data, int len)
 {
   int copylen;
   int i;
-  u8 *buf = data;
+  unsigned char* *buf = data;
   PRINTF("+%s len=%d ", __func__, len);
 
     for (i = 0; i < len; i++) {

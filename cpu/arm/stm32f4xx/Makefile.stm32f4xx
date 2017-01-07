@@ -17,7 +17,7 @@ CONTIKI_CPU_DIRS = . ../common/dbg-io ../common/usb loader \
 
 
 
-STM32F4XX     = clock.c debug-uart.c rtimer-arch.c system_stm32f4xx.c stm32f4xx_rcc.c stm32f4xx_gpio.c misc.c stm32f4x7_eth.c stm32f4xx_syscfg.c# interrupt-utils.c newlib-syscalls.c sys-interrupt.c
+STM32F4XX     = clock.c debug-uart.c rtimer-arch.c system_stm32f4xx.c stm32f4xx_rcc.c stm32f4xx_gpio.c stm32f4xx_usart.c misc.c stm32f4x7_eth.c stm32f4xx_syscfg.c# interrupt-utils.c newlib-syscalls.c sys-interrupt.c
 
 # SYSAPPS = codeprop-otf.c
 # APPDIRS += $(CONTIKI)/cpu/at91sam7s/loader
@@ -87,7 +87,7 @@ CFLAGSNO = -I$(CONTIKI)/core -I$(CONTIKI_CPU) \
            -Wall $(ARCH_FLAGS) -g
 
 CFLAGS  += $(CFLAGSNO) -O -DRUN_AS_SYSTEM -DROM_RUN
-LDFLAGS += -L $(CONTIKI_CPU) -T $(LINKERSCRIPT) -nostartfiles
+LDFLAGS += -L $(CONTIKI_CPU) -T $(LINKERSCRIPT) -nostartfiles -Wl,-Map -Xlinker contiki-$(TARGET).map
 
 CDEPFLAGS = $(CFLAGS) -D __MAKING_DEPS__
 
@@ -102,7 +102,7 @@ CUSTOM_RULE_C_TO_O=yes
 %.o: %.c
 	$(CC) $(CFLAGS) $< -c
 
-$(OBJECTDIR)/%.o: %.c 
+$(OBJECTDIR)/%.o: %.c | $(OBJECTDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 %.o: %.s
@@ -116,7 +116,7 @@ CUSTOM_RULE_S_TO_OBJECTDIR_O = yes
 %.o: %.S
 	$(CC) $(CFLAGS) $< -c
 
-$(OBJECTDIR)/%.o: %.S
+$(OBJECTDIR)/%.o: %.S | $(OBJECTDIR)
 	$(CC) $(CFLAGS) $< -c  -o $@
 
 
@@ -189,7 +189,7 @@ ocd_reset:
 	$(OPENOCD) -s $(OPENOCD_DIR) -f $(OPENOCD_CFG) -c init -c "reset halt;resume" -c exit
 
 # Don't use core/loader/elfloader.c, use elfloader-otf.c instead
-$(OBJECTDIR)/elfloader.o: 
+$(OBJECTDIR)/elfloader.o: | $(OBJECTDIR)
 	echo -n >$@
 
 clean: clean_cpu
