@@ -4,6 +4,9 @@ all: $(CONTIKI_PROJECT)
 PROJECT_SOURCEFILES += xyzmodem.c crc16.c net-uart.c testsys.c
 PLATFORM_BUILD=1
 
+# Add local changes
+LOCAL_BUILD=1
+
 # serial-shell includes shell app too
 APPS = serial-shell
 APPS += about 

@@ -88,6 +88,7 @@ int main()
     // Add shell commands DO NOT use the autostart shell process
     uart1_input_handler = serial_line_input_byte;
     serial_line_init();
+#if LOCAL_BUILD
     serial_shell_init();
     shell_ps_init();
     shell_ping_init();
@@ -96,7 +97,7 @@ int main()
     shell_tcpsend_init();
     shell_udpsend_init();
     shell_wget_init();
-
+#endif
     //TODO test udp/tcp and telnetd/web
     //    tcp_listen
 
@@ -183,9 +184,9 @@ int main()
         while (1);
     }
  #endif
-
+#if LOCAL_BUILD
     shell_rb_init();
-
+#endif
  // testsys
  //process_start(&test_etimer_process, NULL);
  

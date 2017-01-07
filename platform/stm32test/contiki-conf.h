@@ -290,9 +290,9 @@ typedef uint32_t clock_time_t;
 #ifndef  UIP_CONF_TCP_MSS
 #define UIP_CONF_TCP_MSS         200
 #endif
-#define UIP_CONF_MAX_CONNECTIONS 4
-#define UIP_CONF_MAX_LISTENPORTS 8
-#define UIP_CONF_UDP_CONNS       12
+#define UIP_CONF_MAX_CONNECTIONS 8
+#define UIP_CONF_MAX_LISTENPORTS 16
+#define UIP_CONF_UDP_CONNS       16
 #define UIP_CONF_FWCACHE_SIZE    30
 #define UIP_CONF_BROADCAST       1
 //#define UIP_ARCH_IPCHKSUM        1

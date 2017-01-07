@@ -377,7 +377,7 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
   v6hdr = (struct ipv6_hdr *)ipv6packet;
   v4hdr = (struct ipv4_hdr *)resultpacket;
 
-  PRINTF("+%s len=%d ip6src=", __func__, ipv6packet_len);
+  PRINTF("+%s proto=%x len=%d ip6src=", __func__, v6hdr->nxthdr, ipv6packet_len);
   PRINT6ADDRRAW(&v6hdr->srcipaddr);
   PRINTF(" ip6dest=");
   PRINT6ADDRRAW(&v6hdr->destipaddr);
@@ -432,7 +432,7 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
      header field. */
   switch(v6hdr->nxthdr) {
   case IP_PROTO_TCP:
-    PRINTF("ip64_6to4: TCP header\n");
+      PRINTF("ip64_6to4: TCP destport=%x srcport=%x\n", udphdr->destport, udphdr->srcport);
     v4hdr->proto = IP_PROTO_TCP;
 
     /* Compute and check the TCP checksum - since we're going to
@@ -617,6 +617,8 @@ ip64_6to4(const uint8_t *ipv6packet, const uint16_t ipv6packet_len,
       /* Set the source port of the packet to be the mapped port
          number. */
       udphdr->srcport = uip_htons(m->mapped_port);
+    }else {
+        PRINTF("%x<1024\n", udphdr->srcport);
     }
   }
 

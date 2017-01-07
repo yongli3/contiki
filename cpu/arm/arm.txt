@@ -17,3 +17,8 @@
  * @defgroup stm32f103 STM32F103
  * @ingroup arm
  */
+
+/**
+ * @defgroup stm32f4xx STM32F4xx
+ * @ingroup arm
+ */ 

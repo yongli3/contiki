@@ -44,7 +44,7 @@
 
 PROCESS_NAME(shell_httpd_process);
 PROCESS_NAME(net_uart_process);
-PROCESS_NAME(tcptest_process);
+PROCESS_NAME(netclient_process);
 PROCESS_NAME(netserver_process);
 
 PROCESS(ip64_ipv4_dhcp_process, "IPv4 DHCP");
@@ -104,6 +104,7 @@ ip64_dhcpc_configured(const struct ip64_dhcpc_state *s)
   ip64_addr_4to6((uip_ip4addr_t *)&s->dnsaddr, &ip6dnsaddr);
   
   //  mdns_conf(&ip6dnsaddr);
+#if LOCAL_BUILD
   // start httpd after get IP address FIXME needs to check dhcp expire event
   process_start(&shell_httpd_process, NULL);
   
@@ -113,8 +114,9 @@ ip64_dhcpc_configured(const struct ip64_dhcpc_state *s)
 
   set_uart2_event_process(&net_uart_process);
   
-  //process_start(&tcptest_process, NULL);
+  //process_start(&netclient_process, NULL);
   process_start(&netserver_process, NULL);
+#endif  
 }
 /*---------------------------------------------------------------------------*/
 void

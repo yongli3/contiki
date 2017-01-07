@@ -452,21 +452,12 @@ PROCESS_THREAD(net_uart_process, ev, data)
 
     PROCESS_BEGIN();
 
-  printf("+%s\n", __func__);
-  uip_ip6addr(&remote_addr, 0, 0, 0, 0, 0, 0xffff, 0x0aef, 0x3506);
+    printf("+%s Connect to UDP server ", __func__);
+    uip_ip6addr(&remote_addr, 0, 0, 0, 0, 0, 0xffff, 0x0aef, 0x3506);
 
-  PRINTF("remote IP: ");
-  uip_debug_ipaddr_print(&remote_addr);
-  PRINTF("\n");
-
-  udp_conn = udp_new(NULL, UIP_HTONS(0), NULL);
-  udp_bind(udp_conn, UIP_HTONS(REMOTE_PORT));
-
-  if(udp_conn == NULL) {
-    printf("No UDP connection available, exiting the process!\n");
-    PROCESS_EXIT();
-  }
-
+    PRINTF("remote IP: ");
+    uip_debug_ipaddr_print(&remote_addr);
+    PRINTF(" port:%d\n", REMOTE_PORT);
 // FIXME RX overflow issue
 #if 0
   In Most cases, this thread will be wakup up every 5ms, 
@@ -492,15 +483,40 @@ Change teh systick IRQ pro to 0, it can intrrupt the UART2 IRQ, but sometimes th
 for the etimer event to boardcast?
 #endif
 
-#if 0
-  while(1) {
-    PROCESS_WAIT_EVENT();
+#if 1
+// wait for tcp_ip_event to send out uart buffer
+// when a UDP data in, the event as below:
+// ev=8d flags=2 len=2
+// newdata
+// wait ev 8d
+// ev=8d flags=2 len=1
+// newdata
+// wait ev 8d
 
+// UDP client(uip_udp_packet_send/to) cannot get any event ?????
+
+    udp_conn = udp_new(NULL, UIP_HTONS(0), NULL);
+    udp_bind(udp_conn, UIP_HTONS(REMOTE_PORT)); // listen on local 777; nc -u 10.239.53.14 7777
+    if(udp_conn == NULL) {
+        printf("No UDP connection available, exiting the process!\n");
+        PROCESS_EXIT();
+    }
+
+  while(1) { // wait for UDP client ...
+      printf("wait ev %x\n", tcpip_event);
+      PROCESS_WAIT_EVENT_UNTIL(ev == tcpip_event);
+      printf("ev=%x flags=%x len=%d\n", ev, uip_flags, uip_datalen());
+
+      if (uip_newdata()) {
+        printf("newdata\n");// echo
+        memcpy(&remote_addr, &UIP_IP_BUF->srcipaddr, sizeof(remote_addr));
+        uip_udp_packet_sendto(udp_conn, "ack", 4, &remote_addr, UIP_HTONS(REMOTE_PORT));  
+      }
+#if 0
     size1 = ringbuf_elements(&uart2_rxbuf1);
     size2 = ringbuf_elements(&uart2_rxbuf2);    
     printf("*%d-%d %d\n", size1, size2, clock_time());
     
-#if 1
     len = 0;
     if (size1 > 0) {
         for (i = 0; i < size1; i++) {
@@ -515,18 +531,19 @@ for the etimer event to boardcast?
     if (len > 0) {
         uip_udp_packet_sendto(udp_conn, ymodem_buf, len, &remote_addr, UIP_HTONS(REMOTE_PORT));
     }
-#endif
      printf("ev=%x %d data=%x\n", ev, clock_time(), data); // PROCESS_EVENT_MAX
-
-    if(ev == PROCESS_EVENT_POLL) {
-
-    } else if(ev == tcpip_event) {
-      net_input();
-    }
+#endif     
   }
 #else
-// test rtimer
-// delay 2 ms speed = 43KB/s
+    // listen on local port, wait for UDP client... nc -u <ip> <port>
+    udp_conn = udp_new(NULL, UIP_HTONS(0), NULL);
+    udp_bind(udp_conn, UIP_HTONS(REMOTE_PORT));
+
+    if(udp_conn == NULL) {
+        printf("No UDP connection available, exiting the process!\n");
+        PROCESS_EXIT();
+    }
+// Use etimer to poll uart2 buffer, delay 2 ms speed = 43KB/s
 while (1) {
     etimer_set(&uart_et, 2); //FIXME polling time should be based on uart baudrate
     PROCESS_WAIT_EVENT();
@@ -634,9 +651,9 @@ static int handle_tcpconnection(struct psock *p)
   PSOCK_END(p);
 }
 
-// Connect to server and download data, then write to UART2
-PROCESS(tcptest_process, "tcptest client");
-PROCESS_THREAD(tcptest_process, ev, data)
+// Using TCP/UDP connect to a server
+PROCESS(netclient_process, "netclient process");
+PROCESS_THREAD(netclient_process, ev, data)
 #if 0    
 {
   uip_ipaddr_t addr;
@@ -703,7 +720,6 @@ connect ...
 while
 wait ev
 
-
 +process_thread_tcptest_process
 remote IP: ::FFFF:10.239.53.6
 ev=8d
@@ -717,11 +733,12 @@ wait ev
 #endif
     printf("+tcp %d\n", clock_time());
 
-  PROCESS_BEGIN();
-  uip_ip6addr(&remote_addr, 0, 0, 0, 0, 0, 0xffff, 0x0aef, 0x3506);
-  PRINTF("remote IP: ");
-  uip_debug_ipaddr_print(&remote_addr);
-  PRINTF("\n");
+    PROCESS_BEGIN();
+    printf("start TCP client ");
+    uip_ip6addr(&remote_addr, 0, 0, 0, 0, 0, 0xffff, 0x0aef, 0x3506);
+    PRINTF("remote IP: ");
+    uip_debug_ipaddr_print(&remote_addr);
+    PRINTF(" port: 80\n");
 
     // Only execute one time!
     printf("connect ...\n");
@@ -829,13 +846,15 @@ static void tcpip_handler(void)
   return;
 }
 
-// As a server, listen and receive data, then write to uart2
+// As a TCP/UDP server, listen and receive data, then write to uart2
 PROCESS(netserver_process, "TCP/UDP server process");
 PROCESS_THREAD(netserver_process, ev, data)
+#if 0
+// UDP server
 {
 
   PROCESS_BEGIN();
-  PRINTF("Starting TCP/UDP server\n");
+  PRINTF("Starting UDP server\n");
 
   server_conn = udp_new(NULL, UIP_HTONS(0), NULL);
   udp_bind(server_conn, UIP_HTONS(3000));
@@ -852,18 +871,79 @@ PROCESS_THREAD(netserver_process, ev, data)
 
   PROCESS_END();
 }
+#else
+// TCP server the port number must < 1024
+{
+    int i = 0;
+
+    PROCESS_BEGIN();
+    PRINTF("Starting TCP server on port 81\n");
+
+    tcp_listen(UIP_HTONS(81));
+
+    while(1) {
+    printf("wait ev %x\n", tcpip_event);
+    PROCESS_WAIT_EVENT_UNTIL(ev == tcpip_event);
+    printf("ev=%x flags=%x len=%d\n", ev, uip_flags, uip_datalen());
+#if 1
+    // uip_rexmit 
+    //uip_poll == UIP_POLL
+    if  (uip_newdata()) { // UIP_NEWDATA = 2 every 40 ms incoming tcp data_len = 3.4ms
+        // uip_datalen uip_appdata
+        PRINTF("newdata\n");
+        if (uip_datalen() > 0) {
+            for (i = 0; i < uip_datalen(); i++) {
+                //debugbuf[debug_len++] = ((char *)uip_appdata)[i]; // (uint8_t * uip_appdata)[i];
+                putc2(((char *)uip_appdata)[i]);
+            }
+            // reply ACK
+            uip_send("ack", 4);
+        }
+    }
+
+    if(uip_acked()) {
+        printf("acked\n");
+    }
+
+    if (uip_poll()) { // = UIP_POLL = 8
+        //printf("restart\n");
+    }
+    
+    if(uip_aborted())
+	    printf("TCP aborted\n");
+    
+    if(uip_timedout())
+	    printf("TCP timeout\n");
+    
+    if(uip_closed()) { // = UIP_CLOSE = 0x10 = 16
+	    printf("TCP closed\n"); // after close, there is no any event
+     }
+
+    if (uip_rexmit()) {
+        printf("rexmit\n");
+    }
+    
+    if(uip_connected()) { // UIP_CONNECTED = 0x40 = 64
+      printf("TCP Connected\n");
+    }
+#endif    
+  }
+    PROCESS_END();
+}
+#endif
+
 #if 0
 TODO STM32 should support:
 1. TCP client
     TCP in(->uart) okay
     TCP out(uart->) ...
-2. TCP server
+2. TCP server okay
     TCP in ...
     TCP out ...
 3. UDP client
     UDP out(uart->) okay
     UDP in ...
-4. UDP server
+4. UDP server okay
     UDP out ... 
     UDP in ...
 #endif
