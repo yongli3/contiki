@@ -19,8 +19,18 @@
 
 unsigned int idle_count = 0;
 
-int
-main()
+#ifdef  USE_FULL_ASSERT
+void assert_failed(uint8_t* file, uint32_t line)
+{ 
+  printf("%s %s-%d\n", __func__, file, line);
+  while (1)
+  {
+  }
+}
+#endif
+
+
+int main()
 {
   dbg_setup_uart();
   printf("Initialising\n");
@@ -30,6 +40,8 @@ main()
 
   leds_init();
   printf("Leds initialized\n");
+
+  rt_hw_dm9000_init();
 
   process_init();
   process_start(&etimer_process, NULL);

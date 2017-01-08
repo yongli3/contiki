@@ -142,6 +142,10 @@ dbg_putchar(char ch)
 	while (((USART2->SR >> 6) & 0x01) == 0);
 	USART2->DR = (uint8_t)ch;
 #else
+    if (ch == '\n') {
+        USART_SendData(USART1, (u8) '\r');
+        while (USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET);
+    }
     USART_SendData(USART1, (u8) ch);
     while (USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET);
 #endif    
