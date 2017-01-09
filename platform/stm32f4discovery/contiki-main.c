@@ -38,6 +38,13 @@ int main()
   clock_init();
   printf("Clock initialized\n");
 
+#if 0 // test sysclk
+  while (1) {
+    mdelay(100);
+    printf("%d-%d\n", clock_time(), clock_seconds());
+  }
+#endif
+
   leds_init();
   printf("Leds initialized\n");
 

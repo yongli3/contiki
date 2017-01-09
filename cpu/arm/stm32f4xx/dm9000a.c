@@ -16,8 +16,11 @@
 #include <stm32f4xx_gpio.h>
 #include <stm32f4xx_rcc.h>
 #include <stm32f4xx_fsmc.h>
+#include <stdio.h>
 
-// #define DM9000_DEBUG		1
+void EXTI15_10_IRQHandler(void) __attribute__ ((interrupt));
+
+#define DM9000_DEBUG		1
 #if DM9000_DEBUG
 #define DM9000_TRACE	printf
 #else
@@ -33,6 +36,7 @@ typedef uint32_t rt_uint32_t;
  */
 //--------------------------------------------------------
 
+unsigned char rx_buffer[DM9000_PKT_MAX];
 #define DM9000_PHY          0x40    /* PHY address 0x01 */
 #define RST_1()             GPIO_SetBits(GPIOE,GPIO_Pin_5)
 #define RST_0()             GPIO_ResetBits(GPIOE,GPIO_Pin_5)
@@ -177,7 +181,25 @@ int rt_dm9000_init()
     printf("+%s\n", __func__);
     /* RESET device */
     dm9000_io_write(DM9000_NCR, NCR_RST);
-    delay_ms(1000);		/* delay 1ms */
+    mdelay(5);		/* delay 1ms */
+
+#if 1
+ 	dm9000_io_write(DM9000_GPCR,0x01);			//第一步:设置GPCR寄存器(0X1E)的bit0为1 
+	dm9000_io_write(DM9000_GPR,0);				//第二步:设置GPR寄存器(0X1F)的bit1为0，DM9000内部的PHY上电
+
+    dm9000_io_write(DM9000_NCR,(0x02|NCR_RST));	//第三步:软件复位DM9000 
+	do 
+	{
+		mdelay(5); 	
+	}while(dm9000_io_read(DM9000_NCR)&1);		//等待DM9000软复位完成
+	
+	dm9000_io_write(DM9000_NCR,0);
+	dm9000_io_write(DM9000_NCR,(0x02|NCR_RST));	//DM9000第二次软复位
+	do 
+	{
+		mdelay(5);	
+	}while (dm9000_io_read(DM9000_NCR)&1);
+#endif
 
     /* identfy DM9000 */
     value  = dm9000_io_read(DM9000_VIDL);
@@ -221,13 +243,14 @@ int rt_dm9000_init()
         dm9000_io_write(oft, 0xff);
 
     /* Activate DM9000 */
-    dm9000_io_write(DM9000_RCR, RCR_DIS_LONG | RCR_DIS_CRC | RCR_RXEN);	/* RX enable */
+    dm9000_io_write(DM9000_RCR, RCR_DIS_LONG | RCR_DIS_CRC | RCR_PRMSC | RCR_RXEN);	/* RX enable */
     dm9000_io_write(DM9000_IMR, IMR_PAR);
 
 	if (dm9000_device.mode == DM9000_AUTO)
 	{
 	    while (!(phy_read(1) & 0x20))
 	    {
+	        mdelay(1);
 	        /* autonegation complete bit */
 	        //rt_thread_delay(10);
 	        i++;
@@ -267,7 +290,6 @@ int rt_dm9000_init()
     return 0;
 }
 
-#if 0
 /* interrupt service routine */
 void rt_dm9000_isr()
 {
@@ -283,7 +305,7 @@ void rt_dm9000_isr()
     int_status = dm9000_io_read(DM9000_ISR);               /* Got ISR */
     dm9000_io_write(DM9000_ISR, int_status);    /* Clear ISR status */
 
-	DM9000_TRACE("dm9000 isr: int status %04x\n", int_status);
+	//DM9000_TRACE("dm9000 isr: int status %04x\n", int_status);
 
     /* receive overflow */
     if (int_status & ISR_ROS)
@@ -317,7 +339,7 @@ void rt_dm9000_isr()
             dm9000_device.packet_cnt --;
             if (dm9000_device.packet_cnt > 0)
             {
-            	DM9000_TRACE("dm9000 isr: tx second packet\n");
+            	//DM9000_TRACE("dm9000 isr: tx second packet\n");
 
                 /* transmit packet II */
                 /* Set TX length to DM9000 */
@@ -329,7 +351,7 @@ void rt_dm9000_isr()
             }
 
             /* One packet sent complete */
-            rt_sem_release(&sem_ack);
+            //rt_sem_release(&sem_ack);
         }
     }
 
@@ -339,6 +361,7 @@ void rt_dm9000_isr()
     DM9000_IO = last_io;
 }
 
+#if 0
 /* RT-Thread Device Interface */
 /* initialize the interface */
 
@@ -470,18 +493,15 @@ int rt_dm9000_tx( rt_device_t dev, struct pbuf* p)
 
     return RT_EOK;
 }
+#endif
 
 /* reception packet. */
-struct pbuf *rt_dm9000_rx(rt_device_t dev)
+int rt_dm9000_rx()
 {
-    struct pbuf* p;
-    rt_uint32_t rxbyte;
-
-    /* init p pointer */
-    p = RT_NULL;
-
-    /* lock DM9000 device */
-    rt_sem_take(&sem_lock, RT_WAITING_FOREVER);
+    unsigned char *p = NULL;
+    unsigned int rxbyte;
+    int len;
+    int i;
 
     /* Check packet ready or not */
     dm9000_io_read(DM9000_MRCMDX);	    		/* Dummy read */
@@ -493,10 +513,10 @@ struct pbuf *rt_dm9000_rx(rt_device_t dev)
 
         if (rxbyte > 1)
         {
-			DM9000_TRACE("dm9000 rx: rx error, stop device\n");
-
-            dm9000_io_write(DM9000_RCR, 0x00);	/* Stop Device */
-            dm9000_io_write(DM9000_ISR, 0x80);	/* Stop INT request */
+			printf("dm9000 rx: rx error, stop device\n");
+            return -1;
+            //dm9000_io_write(DM9000_RCR, 0x00);	/* Stop Device */
+            //dm9000_io_write(DM9000_ISR, 0x80);	/* Stop INT request */
         }
 
         /* A packet ready now  & Get status/length */
@@ -504,47 +524,8 @@ struct pbuf *rt_dm9000_rx(rt_device_t dev)
 
         rx_status = DM9000_inw(DM9000_DATA_BASE);
         rx_len = DM9000_inw(DM9000_DATA_BASE);
-
-		DM9000_TRACE("dm9000 rx: status %04x len %d\n", rx_status, rx_len);
-
-        /* allocate buffer */
-        p = pbuf_alloc(PBUF_LINK, rx_len, PBUF_RAM);
-        if (p != RT_NULL)
-        {
-            struct pbuf* q;
-            rt_int32_t len;
-
-            for (q = p; q != RT_NULL; q= q->next)
-            {
-                data = (rt_uint16_t*)q->payload;
-                len = q->len;
-
-                while (len > 0)
-                {
-                    *data = DM9000_inw(DM9000_DATA_BASE);
-                    data ++;
-                    len -= 2;
-                }
-            }
-			DM9000_TRACE("\n");
-        }
-        else
-        {
-            rt_uint16_t dummy;
-			rt_int32_t len;
-
-			DM9000_TRACE("dm9000 rx: no pbuf\n");
-
-            /* no pbuf, discard data from DM9000 */
-            data = &dummy;
-			len = rx_len;
-            while (len > 0)
-            {
-                *data = DM9000_inw(DM9000_DATA_BASE);
-                len -= 2;
-            }
-        }
-
+        len = rx_len;
+		DM9000_TRACE("dm9000 rx: status %08x len %d\n", rx_status, rx_len);
         if ((rx_status & 0xbf00) || (rx_len < 0x40)
                 || (rx_len > DM9000_PKT_MAX))
         {
@@ -568,13 +549,30 @@ struct pbuf *rt_dm9000_rx(rt_device_t dev)
 
                 /* RESET device */
                 dm9000_io_write(DM9000_NCR, NCR_RST);
-                rt_thread_delay(1); /* delay 5ms */
+                mdelay(5);
+               // rt_thread_delay(1); /* delay 5ms */
             }
-
-            /* it issues an error, release pbuf */
-            pbuf_free(p);
-            p = RT_NULL;
+            return -1;
         }
+
+        /* allocate buffer */
+        p = rx_buffer;
+        data = p;
+        while (len > 0)
+        {
+            *data = DM9000_inw(DM9000_DATA_BASE);
+            data ++;
+            len -= 2;
+        }
+
+        // dump RX
+        for (i = 0; i < rx_len; i++) {
+            if (0 == (i % 16))
+                printf("\n");
+            
+            printf("%02x ", rx_buffer[i]);
+        }
+        printf("\n");
     }
     else
     {
@@ -583,12 +581,9 @@ struct pbuf *rt_dm9000_rx(rt_device_t dev)
         dm9000_io_write(DM9000_IMR, dm9000_device.imr_all);
     }
 
-    /* unlock DM9000 device */
-    rt_sem_release(&sem_lock);
-
     return p;
 }
-#endif
+
 static void RCC_Configuration(void)
 {
     /* enable gpiob port clock */
@@ -609,10 +604,96 @@ static void NVIC_Configuration(void)
     NVIC_Init(&NVIC_InitStructure);
 }
 
+/* Handle PB12 interrupt */
+void EXTI15_10_IRQHandler(void) {
+	u16 int_status;
+	u16 last_io;
+
+    /* Make sure that interrupt flag is set */
+    printf("EXTI15_10 ");
+    if (EXTI_GetITStatus(EXTI_Line13) != RESET) {
+        /* Do your stuff when PB12 is changed */
+
+    	last_io = DM9000_IO;
+        // disable IRQ
+        dm9000_io_write(DM9000_IMR, IMR_PAR);
+        int_status=dm9000_io_read(DM9000_ISR); 
+    	dm9000_io_write(DM9000_ISR, int_status);				
+        //清除中断标志位，DM9000的ISR寄存器的bit0~bit5写1清零
+        printf("%x\n", int_status);
+        if(int_status & ISR_ROS)printf("overflow \r\n");
+        if(int_status & ISR_ROOS)printf("overflow counter overflow \r\n");	
+    	if(int_status & ISR_PRS) {		//接收中断
+            rt_dm9000_rx();
+    	} 
+    	if(int_status&ISR_PTS) {			//发送中断
+    	 
+    		//发送完成中断，用户自行添加所需代码
+    	}
+        /* Re-enable interrupt mask */
+        dm9000_io_write(DM9000_IMR, dm9000_device.imr_all);
+ 	    DM9000_IO = last_io;        
+
+        /* Clear interrupt flag */
+        EXTI_ClearITPendingBit(EXTI_Line13);
+    }
+}
+
+// config IRQ PD13
+static void Configure_PD13(void) {
+    /* Set variables used */
+    GPIO_InitTypeDef GPIO_InitStruct;
+    EXTI_InitTypeDef EXTI_InitStruct;
+    NVIC_InitTypeDef NVIC_InitStruct;
+    
+    /* Enable clock for GPIOB */
+    RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
+    /* Enable clock for SYSCFG */
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
+    
+    /* Set pin as input */
+    GPIO_InitStruct.GPIO_Mode = GPIO_Mode_IN;
+    GPIO_InitStruct.GPIO_OType = GPIO_OType_PP;
+    GPIO_InitStruct.GPIO_Pin = GPIO_Pin_13;
+    GPIO_InitStruct.GPIO_PuPd = GPIO_PuPd_UP;
+    GPIO_InitStruct.GPIO_Speed = GPIO_Speed_100MHz;
+    GPIO_Init(GPIOD, &GPIO_InitStruct);
+    
+    /* Tell system that you will use PB12 for EXTI_Line12 */
+    SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOD, EXTI_PinSource13);
+    
+    /* PB12 is connected to EXTI_Line12 */
+    EXTI_InitStruct.EXTI_Line = EXTI_Line13;
+    /* Enable interrupt */
+    EXTI_InitStruct.EXTI_LineCmd = ENABLE;
+    /* Interrupt mode */
+    EXTI_InitStruct.EXTI_Mode = EXTI_Mode_Interrupt;
+    /* Triggers on rising and falling edge */
+    EXTI_InitStruct.EXTI_Trigger = EXTI_Trigger_Falling;
+    /* Add to EXTI */
+    EXTI_Init(&EXTI_InitStruct);
+    EXTI_ClearITPendingBit(EXTI_Line13);
+
+    /* Add IRQ vector to NVIC */
+    /* PB12 is connected to EXTI_Line12, which has EXTI15_10_IRQn vector */
+    NVIC_InitStruct.NVIC_IRQChannel = EXTI15_10_IRQn;
+    /* Set priority */
+    NVIC_InitStruct.NVIC_IRQChannelPreemptionPriority = 0x00;
+    /* Set sub priority */
+    NVIC_InitStruct.NVIC_IRQChannelSubPriority = 0x01;
+    /* Enable interrupt */
+    NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;
+    /* Add to NVIC */
+    NVIC_Init(&NVIC_InitStruct);
+}
+
+
 static void GPIO_Configuration()
 {
     GPIO_InitTypeDef GPIO_InitStructure;
     EXTI_InitTypeDef EXTI_InitStructure;
+
+    Configure_PD13();
 
 #if 0
     /* configure PE5 as eth RST */
@@ -785,7 +866,7 @@ void rt_hw_dm9000_init()
     rt_dm9000_init();
 }
 
-void dm9000(void)
+void dm9000_dump(void)
 {
     printf("\n");
     printf("NCR   (0x00): %02x\n", dm9000_io_read(DM9000_NCR));

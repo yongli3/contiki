@@ -131,7 +131,7 @@ static void cc2520_irq_init(void)
 
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO,ENABLE);//外部中断，需要使能AFIO时钟
 
-    //PA0 EXT0
+    //PA0/PB0/PC0/.../PG0 -> EXT0
  	GPIO_EXTILineConfig(GPIO_PortSourceGPIOA,GPIO_PinSource0);
    	EXTI_InitStructure.EXTI_Line=EXTI_Line0;
   	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;	

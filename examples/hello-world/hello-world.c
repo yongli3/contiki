@@ -61,7 +61,7 @@ callback(struct rtimer *t, void *ptr, int status)
 {
 	rtimer_set(&task, RTIMER_NOW() + RTIMER_SECOND,  0, callback, NULL);
 
-	printf("In rtimer\n");
+	//printf("In rtimer\n");
 }
 
 static void
@@ -72,14 +72,14 @@ callback_once(struct rtimer *t, void *ptr, int status)
 
 PROCESS_THREAD(hello_world_process2, ev, data)
 {
-    printf("+%s\n\r", __func__);
+    //printf("+%s\n\r", __func__);
     PROCESS_BEGIN();
 
     printf("Hello world from process_2\n");
 
 		rtimer_init();
-		rtimer_set(&task2, RTIMER_NOW() + RTIMER_SECOND *1, 0 , callback_once, NULL);
-		rtimer_set(&task, RTIMER_NOW() + RTIMER_SECOND * 2,  0, callback, NULL);
+		rtimer_set(&task2, RTIMER_NOW() + RTIMER_SECOND *10, 0 , callback_once, NULL);
+		rtimer_set(&task, RTIMER_NOW() + RTIMER_SECOND * 5,  0, callback, NULL);
 
     etimer_set(&timer2, 25);
 
@@ -102,7 +102,7 @@ PROCESS_THREAD(hello_world_process2, ev, data)
 }
 PROCESS_THREAD(hello_world_process, ev, data)
 {
-    printf("+%s\n\r", __func__);
+    //printf("+%s\n\r", __func__);
 
   PROCESS_BEGIN();
 
@@ -110,7 +110,7 @@ PROCESS_THREAD(hello_world_process, ev, data)
 
   //adc_init();
 
-  etimer_set(&timer, 100);
+  etimer_set(&timer, CLOCK_SECOND * 5);
 
 
     while (1)

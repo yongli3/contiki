@@ -60,10 +60,10 @@ rtimer_arch_now(void)
 void
 rtimer_arch_schedule(rtimer_clock_t time)
 {
-	printf("rtimer_arch_schedule(%u)\n", time);
+	//printf("rtimer_arch_schedule(%u)\n", time);
 
 	TIM14->CCR1 = time;
-	printf("TIM14->CCR1=%u, time=%u\n", (unsigned int)TIM14->CCR1, (unsigned int)time);
+	//printf("TIM14->CCR1=%u, time=%u\n", (unsigned int)TIM14->CCR1, (unsigned int)time);
 
 	/* enable timer */
 	TIM14->CR1 |= (1 << 0);
@@ -77,7 +77,7 @@ TIM8_TRG_COM_TIM14_IRQHandler(void)
 
 	TIM14->SR &= ~(1 << 1);
 
-	printf("Handling interrupt, TIM14->CNT=%u\n", (unsigned int)TIM14->CNT);
+	//printf("Handling interrupt, TIM14->CNT=%u\n", (unsigned int)TIM14->CNT);
 
 	rtimer_run_next();
 

@@ -10,7 +10,7 @@
 #define WITH_ASCII 1
 #define UIP_CONF_ROUTER                 0
 
-#define CLOCK_CONF_SECOND 100
+#define CLOCK_CONF_SECOND 1000
 
 /* These names are deprecated, use C99 names. */
 typedef uint8_t u8_t;

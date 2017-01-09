@@ -1,17 +1,18 @@
 #include <contiki-conf.h>
-#include <stm32f4xx_conf.h>
+#include <stm32f4xx.h>
 #include <core_cm4.h>
 #include <sys/clock.h>
 #include <sys/cc.h>
 #include <sys/etimer.h>
 #include <debug-uart.h>
 
+//-DMCK=168000000
 #define TICKS_PER_INT (MCK / 8 / CLOCK_CONF_SECOND)
 
 static volatile clock_time_t current_clock = 0;
 static volatile unsigned long current_seconds = 0;
 static unsigned int second_countdown = CLOCK_CONF_SECOND;
-
+// SysTick_handler
 void
 SysTick_Handler(void) __attribute__ ((interrupt));
 
@@ -31,9 +32,19 @@ SysTick_Handler(void)
   }
 }
 
+// delay ms 1ms -> 1ms
+void mdelay(uint32_t ms) {
+  uint32_t curTicks = current_clock;
+
+  while ((current_clock - curTicks) < ms * CLOCK_SECOND / 1000);
+}
+
 void
 clock_init()
 {
+    /* Enable clock for SYSCFG */
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
+
     SysTick_Config(TICKS_PER_INT);
     SysTick_CLKSourceConfig(SysTick_CLKSource_HCLK_Div8);
     NVIC_SetPriority(SysTick_IRQn, 6);

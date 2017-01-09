@@ -43,7 +43,7 @@
 #include "stm32f4xx_syscfg.h"
 #include "stm32f4xx_rcc.h"
 
-#define assert_param(expr) ((void)0)
+//#define assert_param(expr) ((void)0)
 
 /** @addtogroup STM32F4xx_StdPeriph_Driver
   * @{
